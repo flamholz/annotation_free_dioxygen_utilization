@@ -2,8 +2,6 @@
 import pandas as pd
 import numpy as np
 import os
-import subprocess as sb
-import wget
 from typing import Dict, NoReturn, Tuple
 import json
 import argparse
