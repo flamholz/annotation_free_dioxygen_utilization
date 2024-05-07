@@ -42,29 +42,28 @@ def clean_features(data:pd.DataFrame, feature_type:str='aa_3mer'):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('model-path', help='Path to the saved pre-trained model.')
-    parser.add_argument('data-path', help='Path to the data on which to run the trained model. This should be in CSV format.')
-    parser.add_argument('--feature-type', type=str, default='aa_3mer', choices=FEATURE_SUBTYPES + FEATURE_TYPES, help='The feature type on which to train.')
-    parser.add_argument('--out', '-o', default='run_pretrained_results.csv', help='The location to which the predictions will be written.')
+    parser.add_argument('--model-path', '-m', type=str, help='Path to the saved pre-trained model.')
+    parser.add_argument('--input-path', '-i', type=str, help='Path to the data on which to run the trained model. This should be in CSV format.')
+    parser.add_argument('--feature-type', '-f', type=str, default='aa_3mer', choices=FEATURE_SUBTYPES + FEATURE_TYPES, help='The feature type on which to train.')
+    parser.add_argument('--output-path', '-o', type=str, default='run_pretrained_results.csv', help='The location to which the predictions will be written.')
 
 
     args = parser.parse_args()
     check_args(args)
     t1 = time.perf_counter()
 
-    data_path = getattr(args, 'data-path')
-    data = pd.read_csv(data_path, index_col=0) # Need to preserve the index, which is the genome ID.
+    data = pd.read_csv(args.input_path, index_col=0) # Need to preserve the index, which is the genome ID.
     data = clean_features(data, feature_type=args.feature_type) # Make sure the feature ordering is correct. 
 
-    model = GeneralClassifier.load(getattr(args, 'model-path')) # Load the trained model. 
+    model = GeneralClassifier.load(args.model_path) # Load the trained model. 
     X = data.values # Extract the raw data from the input DataFrame.
     y_pred = model.predict(X)
 
     results = pd.DataFrame(index=data.index) # Make sure to add the index back in!
     results['prediction'] = y_pred.ravel() # Ravel because Nonlinear output is a column vector. 
     
-    print(f'\nWriting results to {args.out}.')
-    results.to_csv(args.out)
+    print(f'\nWriting results to {args.output_path}.')
+    results.to_csv(args.output_path)
     
     t2 = time.perf_counter()
     print(f'\nModel run complete in {np.round(t2 - t1, 2)} seconds.')

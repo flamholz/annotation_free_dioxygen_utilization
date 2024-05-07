@@ -1,14 +1,13 @@
+'''A script for generating amino-acid k-mer counts from a FASTA file produced by Prodigal.'''
 import re
 import pandas as pd 
 import numpy as np 
 from aerobot.io import RESULTS_PATH
-from aerobot.dataset import dataset_load_feature_order
+# from aerobot.dataset import dataset_load_feature_order
 from aerobot.kmer import kmer_sequence_to_kmers
 import os 
 from tqdm import tqdm
-
-BS_PATH = os.path.join(RESULTS_PATH, 'black_sea')
-
+import argparse
 
 def parse_prodigal_output(path:str) -> pd.DataFrame:
     '''Read in Prodigal output, and generate a DataFrame mapping each automatically-generated gene ID to its
@@ -46,7 +45,7 @@ def get_contig_kmers(path:str, k:int=3) -> pd.DataFrame:
         also has a column for the original genome ID. 
     '''
     df = parse_prodigal_output(path)
-    # df = df.iloc[:1000]
+    df = df.iloc[:1000]
 
     # def combine_contig(df:pd.DataFrame):
     #     seqs = df.seq.values.tolist()
@@ -57,18 +56,25 @@ def get_contig_kmers(path:str, k:int=3) -> pd.DataFrame:
     kmer_df = []
     for row in tqdm(df.itertuples(), desc='get_contig_kmers', total=len(df)):
         kmer_row = dict()
+        kmer_row = kmer_sequence_to_kmers(row.seq, kmer_row, k=k)
         kmer_row['contig_id'] = row.contig_id
-        kmer_row.update(kmer_sequence_to_kmers(row.seq, dict(), k=k))
         kmer_df.append(kmer_row)
     kmer_df = pd.DataFrame(kmer_df)
+
     return kmer_df.groupby('contig_id').sum() # Sum k-mer counts across contigs. 
 
 
 if __name__ == '__main__':
 
-    aa_3mer_features = dataset_load_feature_order('aa_3mer')
-    kmer_df = get_contig_kmers(os.path.join(BS_PATH, 'bs_contigs.faa'))
-    kmer_df = kmer_df[['contig_id'] + aa_3mer_features]
-    kmer_df = kmer_df.set_index('contig_id')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input-path', '-i', type=str, help='Location of the Prodigal output file containing the gene predictions.')
+    parser.add_argument('--output-path', '-o', type=str, help='Location to which to write the k-mer count CSV.')
+    parser.add_argument('-k', '--kmer-size', type=int, default=3, help='The size of the k-mers. ')
 
-    kmer.to_csv(os.path.join(BS_PATH, 'bs_aa_3mer_from_contigs.csv'))
+    args = parser.parse_args()
+
+    # aa_3mer_features = dataset_load_feature_order('aa_3mer')
+    kmer_df = get_contig_kmers(args.input_path, k=args.k)
+    # kmer_df = kmer_df[['contig_id'] + aa_3mer_features] # contig_id is already the index after merging. 
+    # kmer_df = kmer_df.set_index('contig_id')
+    kmer_df.to_csv(args.output_path)

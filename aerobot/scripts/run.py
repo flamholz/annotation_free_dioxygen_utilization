@@ -48,9 +48,8 @@ if __name__ == '__main__':
     parser.add_argument('--C', default=100, type=float, help='Inverse of regularization strength for the LogisticRegression classifier' ) 
     parser.add_argument('--penalty', default='l2', type=str, help='The norm of the penalty term for the LogisticRegression classifier.') 
     parser.add_argument('--max-iter', default=100000, type=int, help='Maximum number of iterations for the LogisticRegression classifier.')
-    # Parameters for saving the model. 
-    parser.add_argument('--save-model', default=False, type=bool, help='Whether or not to save the model.') 
-    parser.add_argument('--save-model-path', default='model.joblib', type=str, help='Path to save the trained model.') 
+    # Parameter for saving the model. 
+    parser.add_argument('--model-path', default=None, help='Path to save the trained model.') 
 
     args = parser.parse_args()
     check_args(args)
@@ -84,9 +83,9 @@ if __name__ == '__main__':
     print(f'\nWriting results to {args.out}.')
     save_results_dict(results, args.out, fmt=args.output_format)
 
-    if args.save_model:
-        print(f'Saving trained model to {args.save_model_path}.')
-        model.save(args.save_model_path)
+    if args.model_path is not None:
+        print(f'Saving trained model to {args.model_path}.')
+        model.save(args.model_path)
     
     t2 = time.perf_counter()
     print(f'\nModel run complete in {np.round(t2 - t1, 2)} seconds.')
