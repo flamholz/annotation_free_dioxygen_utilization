@@ -45,7 +45,6 @@ def get_contig_kmers(path:str, k:int=3) -> pd.DataFrame:
         also has a column for the original genome ID. 
     '''
     df = parse_prodigal_output(path)
-    df = df.iloc[:1000]
 
     # def combine_contig(df:pd.DataFrame):
     #     seqs = df.seq.values.tolist()
