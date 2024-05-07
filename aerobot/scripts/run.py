@@ -81,9 +81,9 @@ if __name__ == '__main__':
 
     print_summary(results) # Print a summary of the training run to the terminal. 
 
-    if results.output_path is not None:
+    if args.output_path is not None:
         print(f'\nWriting results to {args.output_path}.')
-        save_results_dict(results, args.out, fmt=args.output_format)
+        save_results_dict(results, args.output_path, fmt=args.output_format)
 
     if args.model_path is not None:
         print(f'Saving trained model to {args.model_path}.')
