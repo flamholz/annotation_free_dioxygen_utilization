@@ -74,7 +74,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # aa_3mer_features = dataset_load_feature_order('aa_3mer')
-    kmer_df = get_contig_kmers(args.input_path, k=args.k)
+    kmer_df = get_contig_kmers(args.input_path, k=args.kmer_size)
     # kmer_df = kmer_df[['contig_id'] + aa_3mer_features] # contig_id is already the index after merging. 
     # kmer_df = kmer_df.set_index('contig_id')
     kmer_df.to_csv(args.output_path)
