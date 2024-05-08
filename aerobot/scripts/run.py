@@ -25,7 +25,8 @@ def print_summary(results:Dict) -> NoReturn:
 def check_args(args):
     '''Check the command-line arguments.'''
     assert (not args.binary) or (args.model_class != 'nonlinear'), 'The Nonlinear model does not currently support binary classification.'
-    assert args.out.split('.')[-1] == args.output_format, f'Output file type does not match specified format {args.output_format}.'
+    if args.output_path is not None:
+        assert args.output_path.split('.')[-1] == args.output_format, f'Output file type does not match specified format {args.output_format}.'
 
 
 if __name__ == '__main__':
@@ -33,7 +34,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('model-class', choices=['nonlinear', 'logistic'], help='The type of model to train.')
     parser.add_argument('--feature-type', type=str, default='KO', choices=FEATURE_SUBTYPES + FEATURE_TYPES, help='The feature type on which to train.')
-    parser.add_argument('--out', '-o', default='run_model_results.json', help='The location to which the pickled results will be written.')
+    parser.add_argument('--output-path', '-o', default=None, help='The location to which the results will be written.')
     parser.add_argument('--output-format', default='json', choices=['pkl', 'json'], help='Format of the results file.')
     parser.add_argument('--binary', default=0, type=bool, help='Whether to train on the binary classification task. If False, then ternary classification is performed.')
     # Optional parameters for Nonlinear classifiers. 
@@ -48,9 +49,8 @@ if __name__ == '__main__':
     parser.add_argument('--C', default=100, type=float, help='Inverse of regularization strength for the LogisticRegression classifier' ) 
     parser.add_argument('--penalty', default='l2', type=str, help='The norm of the penalty term for the LogisticRegression classifier.') 
     parser.add_argument('--max-iter', default=100000, type=int, help='Maximum number of iterations for the LogisticRegression classifier.')
-    # Parameters for saving the model. 
-    parser.add_argument('--save-model', default=False, type=bool, help='Whether or not to save the model.') 
-    parser.add_argument('--save-model-path', default='model.joblib', type=str, help='Path to save the trained model.') 
+    # Parameter for saving the model. 
+    parser.add_argument('--model-path', default=None, help='Path to save the trained model.') 
 
     args = parser.parse_args()
     check_args(args)
@@ -81,12 +81,13 @@ if __name__ == '__main__':
 
     print_summary(results) # Print a summary of the training run to the terminal. 
 
-    print(f'\nWriting results to {args.out}.')
-    save_results_dict(results, args.out, fmt=args.output_format)
+    if args.output_path is not None:
+        print(f'\nWriting results to {args.output_path}.')
+        save_results_dict(results, args.output_path, fmt=args.output_format)
 
-    if args.save_model:
-        print(f'Saving trained model to {args.save_model_path}.')
-        model.save(args.save_model_path)
+    if args.model_path is not None:
+        print(f'Saving trained model to {args.model_path}.')
+        model.save(args.model_path)
     
     t2 = time.perf_counter()
     print(f'\nModel run complete in {np.round(t2 - t1, 2)} seconds.')

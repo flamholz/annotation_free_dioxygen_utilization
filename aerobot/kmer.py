@@ -40,7 +40,7 @@ def kmer_count_gz(path, k:int=3) -> Dict[str, int]:
     return kmers
     
 
-def kmer_count_fasta(path, k:int=3) -> Dict[str, int]:
+def kmer_count_fasta(path:str, k:int=3) -> Dict[str, int]:
     '''Count k-mers stored in a non-compressed FASTA file (with a .fa, .fn, etc. extension).
     
     :param path: The path to the FASTA file to read. 
@@ -49,8 +49,9 @@ def kmer_count_fasta(path, k:int=3) -> Dict[str, int]:
     '''
     kmers = dict() # Initialize a dictionary to store the k-mers. 
     with open(path, 'r') as f:
-        # Parse the fasta file and iterate through each record.
+        # Parse the FASTA file and iterate through each record.
         for record in SeqIO.parse(f, 'fasta'):
             seq = str(record.seq) 
             kmers = kmer_sequence_to_kmers(seq, kmer, k=k)
     return kmers
+
