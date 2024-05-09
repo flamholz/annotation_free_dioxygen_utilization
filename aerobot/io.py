@@ -9,6 +9,7 @@ import pickle
 
 CWD, _ = os.path.split(os.path.abspath(__file__))
 ASSET_PATH = os.path.join(CWD, 'assets')
+MODEL_PATH = os.path.join(CWD, 'models')
 RESULTS_PATH = os.path.join(CWD, '..', 'results')
 
 FEATURE_TYPES = ['KO', 'embedding.genome', 'embedding.geneset.oxygen', 'metadata', 'chemical'] 

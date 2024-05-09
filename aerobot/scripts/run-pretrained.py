@@ -47,7 +47,6 @@ if __name__ == '__main__':
     parser.add_argument('--feature-type', '-f', type=str, default='aa_3mer', choices=FEATURE_SUBTYPES + FEATURE_TYPES, help='The feature type on which to train.')
     parser.add_argument('--output-path', '-o', type=str, default='run_pretrained_results.csv', help='The location to which the predictions will be written.')
 
-
     args = parser.parse_args()
     check_args(args)
     t1 = time.perf_counter()
