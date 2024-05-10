@@ -2,7 +2,7 @@
 and validation sets with no repeated species across the two sets. '''
 import numpy as np
 import pandas as pd
-from aerobot.io import save_hdf, FEATURE_TYPES, FEATURE_SUBTYPES
+from aerobot.io import save_hdf, DATA_PATH, FEATURE_TYPES, FEATURE_SUBTYPES
 from aerobot.chemical import chemical_get_features
 import os
 import subprocess
@@ -18,7 +18,7 @@ warnings.filterwarnings('ignore', category=tables.NaturalNameWarning)
 # TODO: Possibly add the code for reading and writing maps to the io.py file?
 
 
-def load_data_madin(path:str=os.path.join(ASSET_PATH, 'data/madin/madin_data.h5'), feature_type:str='ko') -> Dict[str, pd.DataFrame]:
+def load_data_madin(path:str=os.path.join(DATA_PATH, '/madin/madin_data.h5'), feature_type:str='ko') -> Dict[str, pd.DataFrame]:
     '''Load the training data from Madin et. al. This data is stored in an H5 file, as it is too large to store in 
     separate CSVs. 
 
@@ -136,7 +136,7 @@ def fill_missing_taxonomy(labels:pd.DataFrame) -> pd.DataFrame:
     return labels
 
 
-def load_jablonska_data(path:str=os.path.join(ASSET_PATH, 'data/jablonska/'), feature_type:str='KO') -> Dict[str, pd.DataFrame]:
+def load_jablonska_data(path:str=os.path.join(DATA_PATH, 'jablonska/'), feature_type:str='KO') -> Dict[str, pd.DataFrame]:
     '''Load the data from Jablonska et. al.
 
     :param path: The path to the directory containing the validation data files.
@@ -171,24 +171,24 @@ def load_jablonska_data(path:str=os.path.join(ASSET_PATH, 'data/jablonska/'), fe
     return output
 
 
-def download_data(dir_path:str=os.path.join(ASSET_PATH, 'train/')) -> NoReturn:
-    '''Download the training data from Google Cloud.
+# def download_data(dir_path:str=os.path.join(DATA_PATH, 'train/')) -> NoReturn:
+#     '''Download the training data from Google Cloud.
     
-    :param dir_path: The directory into which the training data will be downloaded.
-    '''
-    zip_filename = 'training_data.tar.gz' # TODO: Does this contain the training data only?
-    zip_file_path = os.path.join(dir_path, zip_filename)
-    h5_filename = os.path.join(dir_path, 'training_data.h5')
-    # Check to make sure the data has not already been downloaded.
-    if not os.path.exists(os.path.join(dir_path, zip_filename)):
-        print('Downloading data from Google Cloud bucket...')
-        url = f'https://storage.googleapis.com/microbe-data/aerobot/{zip_filename}'
-        wget.download(url, dir_path)
-        print('Download complete.')
-    # Check to make sure the data has not already been extracted.
-    if not os.path.exists(os.path.join(dir_path, h5_filename)):
-        print('Extracting feature data...')
-        subprocess.call(f'tar -xvf {os.path.join(dir_path, zip_filename)} --directory {dir_path}', shell=True)
+#     :param dir_path: The directory into which the training data will be downloaded.
+#     '''
+#     zip_filename = 'training_data.tar.gz' # TODO: Does this contain the training data only?
+#     zip_file_path = os.path.join(dir_path, zip_filename)
+#     h5_filename = os.path.join(dir_path, 'training_data.h5')
+#     # Check to make sure the data has not already been downloaded.
+#     if not os.path.exists(os.path.join(dir_path, zip_filename)):
+#         print('Downloading data from Google Cloud bucket...')
+#         url = f'https://storage.googleapis.com/microbe-data/aerobot/{zip_filename}'
+#         wget.download(url, dir_path)
+#         print('Download complete.')
+#     # Check to make sure the data has not already been extracted.
+#     if not os.path.exists(os.path.join(dir_path, h5_filename)):
+#         print('Extracting feature data...')
+#         subprocess.call(f'tar -xvf {os.path.join(dir_path, zip_filename)} --directory {dir_path}', shell=True)
 
 
 def remove_duplicates(data:pd.DataFrame) -> Tuple[pd.DataFrame, np.ndarray, np.ndarray]:
@@ -291,9 +291,9 @@ if __name__ == '__main__':
     training_datasets, validation_datasets = training_validation_split(all_datasets)
 
     print('Saving the datasets...')
-    save_hdf(all_datasets, os.path.join(ASSET_PATH, 'updated_all_datasets.h5'))
-    save_hdf(training_datasets, os.path.join(ASSET_PATH, 'updated_training_datasets.h5'))
-    save_hdf(validation_datasets, os.path.join(ASSET_PATH, 'updated_validation_datasets.h5'))
+    save_hdf(all_datasets, os.path.join(DATA_PATH, 'updated_all_datasets.h5'))
+    save_hdf(training_datasets, os.path.join(DATA_PATH, 'updated_training_datasets.h5'))
+    save_hdf(validation_datasets, os.path.join(DATA_PATH, 'updated_validation_datasets.h5'))
 
 
 # pretty_feature_names = {

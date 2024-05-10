@@ -39,7 +39,7 @@ def plot_training_curve(results:Dict, path:str=None) -> NoReturn:
 
     fig, loss_ax = plt.subplots()
     acc_ax = loss_ax.twinx() # Create another axis for displaying accuracy.
-    loss_ax.set_title(f'{PRETTU_NAMES[feature_type]} training curve') # Set the title.
+    loss_ax.set_title(f'{PRETTY_NAMES[feature_type]} training curve') # Set the title.
 
     lines = loss_ax.plot(train_losses, c=COLORS[0], label='training loss')
     lines += loss_ax.plot(val_losses, c=COLORS[0], linestyle='--', label='validation loss')
