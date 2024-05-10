@@ -1,10 +1,9 @@
 **/*.pyc
 __pycache__/
 .ipynb_checkpoints/
-aerobot/assets/data/madin/madin.h5
-aerobot/assets/*.h5
-aerobot/assets/train/*.tar.gz
-**/.DS_Store
-aerobot/assets/validation/genomes/
-results/earth_microbiome/emb*
-results/black_sea/*
+data
+data/madin
+data/jablonska
+data/black_sea
+data/earth_microbiome
+data/contigs

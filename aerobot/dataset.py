@@ -7,8 +7,21 @@ import subprocess as sb
 import wget
 from typing import Dict, NoReturn, Tuple
 from aerobot.chemical import chemical_get_features
-from aerobot.io import load_hdf, FEATURE_SUBTYPES, FEATURE_TYPES, ASSET_PATH
+from aerobot.io import load_hdf, FEATURE_SUBTYPES, FEATURE_TYPES, DATA_PATH
 import json
+
+# TODO: Should constant-sum scaling happen before or after removal of the X amino acids? And before or after we
+# filter the k-mers in the validation datasets (EMP and Black Sea)?
+
+# Issue I see with normalizing after filtering by k-mers is that it might make it seem like some k-mers are a more
+# important part of the input sequence than they actually are, i.e. it will bias the normalized vector in favor of the
+# k-mers we are selecting. I think it might be best to normalize prior to filtering features. 
+
+# TODO: Another question is when to drop the feature columns with NaNs. There is a possibility that columns with NaNs in the training
+# and validation sets may not align. I think it might be best to drop NaN columns in the training set and then fill with zeros for the
+# validation set to avoid data leakage. If we use the validation set to select which features we train on, that is data leakage.
+
+
 
 def dataset_align(dataset:Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
     '''Align the features and labels in a dataset, so that the indices match.
@@ -28,6 +41,16 @@ def dataset_align(dataset:Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
     return {'features':features, 'labels':labels} # Return the aligned dataset.
 
 
+def dataset_normalize(dataset:Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
+    '''Apply constant-sum scaling to the rows in the dataset.
+
+    :param dataset
+    :return: A dataset with constant-sum normalized rows. 
+    '''
+    dataset['features'] = dataset['features'].apply(lambda row : row / row.sum(), axis=0)
+    return dataset
+
+
 def dataset_to_numpy(dataset:Dict[str, pd.DataFrame]) -> Dict[str, np.ndarray]:
     '''Convert the input dataset, which is a dictionary of pandas DataFrames, to a dictionary mapping
     'features' and 'labels' to numpy arrays. The 'labels' array contains only the values in the 
@@ -45,33 +68,40 @@ def dataset_to_numpy(dataset:Dict[str, pd.DataFrame]) -> Dict[str, np.ndarray]:
     return numpy_dataset
 
 
-def dataset_clean(dataset:Dict[str, pd.DataFrame], to_numpy:bool=True, binary:bool=False) -> Tuple[Dict]:
-    '''Clean up the input dataset by (1) aligning the feature and label indices, (2) formatting the physiology labels
-    for the downstream classification task, (3) removing columns in the feature DataFrame with NaNs, and (4) converting
-    the DataFrames to numpy arrays, if specified.
+def dataset_clean(dataset:Dict[str, pd.DataFrame], feature_type:str=None, binary:bool=False) -> Tuple[Dict]:
+    '''Clean up the input dataset by doing the following.
+        (1) Formatting the physiology labels for ternary or binary classification. 
+        (2) Standardizing the feature set and order. The reference set of features against which all datasets are standardized
+            are the non-NaN columns in the training set; see dataset_load_feature_order for more information.
+        (3) Filling all remaining NaNs in the dataset with 0.
+        (4) Aligning the feature and label indices.
 
     :param dataset: A dictionary with two keys, 'features' and 'labels', each of which map to a pandas
         DataFrame containing the feature and label data, respectively.
-    :param to_numpy: Whether or not to convert the feature sets to numpy ndarrays for model compatibility.
+    :param feature_type: The feature type of the dataset. 
     :param binary: Whether or not to use the binary training labels. If False, the ternary labels are used.
     :return: The cleaned-up dataset.
     '''
     # Select a label map for the binary or ternary classification task.
-    ternary_label_map = {"Aerobe": "aerobe", "Facultative": "facultative", "Anaerobe": "anaerobe"}
-    binary_label_map = {"Aerobe": "tolerant", "Facultative": "tolerant", "Anaerobe": "intolerant"}
-    label_map = binary_label_map if binary else ternary_label_map
-    
+    if binary:
+        label_map = {"Aerobe": "tolerant", "Facultative": "tolerant", "Anaerobe": "intolerant"}
+    else:
+        label_map = {"Aerobe": "aerobe", "Facultative": "facultative", "Anaerobe": "anaerobe"}
     dataset['labels'].physiology = dataset['labels'].physiology.replace(label_map) # Format the labels.
 
-    if dataset['features'] is not None:
-        dataset['features'] = dataset['features'].dropna(axis=1) # Drop columns which contain NaNs the dataset. 
-        dataset = dataset_align(dataset) # Align the features and labels indices.
+    # Ensure that the column ordering in the dataset matches the reference. This should remove
+    # all columns which were NaN in the training set. 
+    dataset['features'] = dataset['features'][dataset_load_feature_order(feature_type)]
+    dataset['features'] = dataset['features'].fillna(0) # Fill in remaining NaNs with zeros. 
 
-    return dataset_to_numpy(dataset) if to_numpy else dataset
+    dataset = dataset_align(dataset) # Align the features and labels indices.
+
+    return dataset
 
 
-def dataset_load(feature_type:str, path:str) -> Dict:
-    '''Load a dataset for a particular feature type from the specified path.
+def dataset_load(path:str, feature_type:str=None, normalize:bool=True) -> Dict:
+    '''Load a dataset for a particular feature type from the specified path. No filtering is applied to any of the
+    features in the dataset at this point. 
     
     :param feature_type: Feature type to load from the HDF file. If None, genome IDs are used 
         as the feature type (for working with MeanRelative and RandRelative classifiers).
@@ -80,10 +110,9 @@ def dataset_load(feature_type:str, path:str) -> Dict:
     '''
     subtype = None
     assert feature_type in FEATURE_TYPES + FEATURE_SUBTYPES + [None], f'dataset_load: Input feature type {feature_type} is invalid.'
-    if feature_type is not None:
-        # Special case if the feature_type is a "subtype", which is stored as a column in the metadata.
-        if feature_type in FEATURE_SUBTYPES:
-            feature_type, subtype = feature_type.split('.')
+    # Special case if the feature_type is a "subtype", which is stored as a column in the metadata.
+    if (feature_type in FEATURE_SUBTYPES) and (feature_type is not None):
+        feature_type, subtype = feature_type.split('.')
         
     dataset = load_hdf(path, feature_type=feature_type) # Read from the HDF file.
     if dataset['features'] is None:
@@ -91,21 +120,11 @@ def dataset_load(feature_type:str, path:str) -> Dict:
     if subtype is not None: # If a feature subtype is given, extract the information from the metadata.
         dataset['features'] = dataset['features'][[subtype]]
 
-    return dataset
+    # If the normalize option is specified, and the feature type is "normalizable," then normalize the rows.
+    is_normalizable_feature_type = ('aa_' in feature_type) or ('nt_' in feature_type) or ('cds_' in feature_type)
+    if normalize and is_normalizable_feature_type:
+        dataset = dataset_normalize(dataset)
 
-
-def dataset_load_all(feature_type:str, binary:bool=False, to_numpy:bool=True, drop_x:bool=True) -> Dict:
-    '''Load the full dataset for the specified feature type.
-
-    :param feature_type: The feature type for which to load data.
-    :param binary: Whether or not to use the binary training labels. If False, the ternary labels are used.
-    :param to_numpy: Whether or not to convert the feature sets to numpy ndarrays for model compatibility.
-    :param drop_x: Whether or not to drop the X amino acids when amino acid feature sets are being loaded.
-    :return: A dictionary with the cleaned-up full dataset.
-    '''
-    dataset = dataset_load(feature_type, os.path.join(ASSET_PATH, 'updated_all_datasets.h5')) # Read in the dataset.
-    dataset['features'] = dataset['features'][dataset_load_feature_order(feature_type, drop_x=drop_x)] # Ensure the column ordering is consistent. 
-    dataset = dataset_clean(dataset, binary=binary, to_numpy=to_numpy) # Clean up the dataset.
     return dataset
 
 
@@ -121,40 +140,41 @@ def dataset_get_features(dataset:Dict[str, pd.DataFrame]) -> np.ndarray:
     return features.to_numpy()
 
 
-def dataset_load_feature_order(feature_type:str, drop_x:bool=True) -> np.ndarray:
+def dataset_load_feature_order(feature_type:str, drop_x:bool=True, drop_na:bool=True) -> np.ndarray:
     '''Load the columns ordering for a particular feature type. This function returns columns ordered
     in the same way as the training dataset, which is used as a reference throughout the project.
 
     :param feature_type: The feature type for which to load data.
+    :param drop_na: Whether or not to drop the features which contain NaN values. 
     :param drop_x: Whether or not to drop the X amino acids when amino acid feature sets are being loaded.
     :return: A numpy array of features, which are the columns of the features DataFrame for the input feature type. 
     '''
-    dataset = dataset_load(feature_type, os.path.join(ASSET_PATH, 'updated_training_datasets.h5')) # Load the training dataset. 
-    features = dataset_get_features(dataset)
-    if 'aa_' in feature_type: # Remove all unknown amino acids from the feature set.
-        features = np.array([f for f in features if 'X' not in f])
-    return features
+    dataset = dataset_load(os.path.join(DATA_PATH, 'updated_training_datasets.h5'), feature_type=feature_type) # Load the training dataset. 
+    if drop_na: # Drop any feature columns which contain NaNs. 
+        dataset['features'] = dataset['features'].dropna(axis=1)
+    if ('aa_' in feature_type) and (drop_x): # Remove all unknown amino acids from the feature set.
+        dataset['features'] = dataset['features'][[f for f in dataset['features'].columns if 'X' not in f]]
+    return dataset_get_features(dataset)
 
 
-def dataset_load_training_validation(feature_type:str, binary:bool=False, to_numpy:bool=True, drop_x:bool=True) -> Tuple[Dict]:
+def dataset_load_training_validation(feature_type:str, binary:bool=False, to_numpy:bool=True, normalize:bool=True) -> Tuple[Dict]:
     '''Load training and validation datasets for the specified feature type.
 
     :param feature_type: The feature type for which to load data.
     :param binary: Whether or not to use the binary training labels. If False, the ternary labels are used.
     :param to_numpy: Whether or not to convert the feature sets to numpy ndarrays for model compatibility.
-    :param drop_x: Whether or not to drop the X amino acids when amino acid feature sets are being loaded.
+    :param normalize: Whether or not to constant-sum scale the k-mer counts. This will only be applied if the feature type is "normalizable."
     :return: A 2-tuple of dictionaries with the cleaned-up training and validation datasets as numpy arrays.
     '''
-    training_dataset = dataset_load(feature_type, os.path.join(ASSET_PATH, 'updated_training_datasets.h5'))
-    validation_dataset = dataset_load(feature_type, os.path.join(ASSET_PATH, 'updated_validation_datasets.h5'))
-
-    # Make sure the columns in the training and validation datasets are aligned. 
-    validation_dataset['features'] = validation_dataset['features'][dataset_load_feature_order(feature_type, drop_x=drop_x)]
-    training_dataset['features'] = training_dataset['features'][dataset_load_feature_order(feature_type, drop_x=drop_x)]
-    assert np.all(dataset_get_features(training_dataset) == dataset_get_features(validation_dataset)), 'dataset_load_training_validation: Column labels in training and validation datasets are not aligned.'
+    training_dataset = dataset_load(os.path.join(DATA_PATH, 'updated_training_datasets.h5'), feature_type=feature_type, normalize=normalize)
+    validation_dataset = dataset_load(os.path.join(DATA_PATH, 'updated_validation_datasets.h5'), feature_type=feature_type, normalize=normalize)
 
     # Clean up both datasets.
-    validation_dataset = dataset_clean(validation_dataset, binary=binary, to_numpy=to_numpy)
-    training_dataset = dataset_clean(training_dataset, binary=binary, to_numpy=to_numpy)
+    validation_dataset = dataset_clean(validation_dataset, binary=binary, feature_type=feature_type)
+    training_dataset = dataset_clean(training_dataset, binary=binary, feature_type=feature_type)
+
+    if to_numpy:
+        validation_dataset = dataset_to_numpy(validation_dataset)
+        training_dataset = dataset_to_numpy(training_dataset)
 
     return training_dataset, validation_dataset

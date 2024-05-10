@@ -8,8 +8,10 @@ import argparse
 import pickle
 
 CWD, _ = os.path.split(os.path.abspath(__file__))
-ASSET_PATH = os.path.join(CWD, 'assets')
-MODEL_PATH = os.path.join(CWD, 'models')
+DATA_PATH = os.path.join(CWD, '..', 'data')
+MODELS_PATH = os.path.join(CWD, '..', 'models')
+SCRIPTS_PATH = os.path.join(CWD, '..', 'scripts')
+FIGURES_PATH = os.path.join(CWD, '..', 'figures')
 RESULTS_PATH = os.path.join(CWD, '..', 'results')
 
 FEATURE_TYPES = ['KO', 'embedding.genome', 'embedding.geneset.oxygen', 'metadata', 'chemical'] 
@@ -19,17 +21,6 @@ FEATURE_TYPES += [f'aa_{i}mer' for i in range(1, 4)]
 
 # Some feature types are stored as metadata fields.
 FEATURE_SUBTYPES = ['metadata.number_of_genes', 'metadata.oxygen_genes', 'metadata.pct_oxygen_genes']
-
-
-# # NOTE: Where are these used?
-# def load_ko2ec():
-#     p = os.path.join(ASSET_PATH, 'mappings/keggOrthogroupsToECnumbers.07Feb2023.csv')
-#     return pd.read_csv(p, index_col=0)
-
-
-# def load_oxygen_kos():
-#     p = os.path.join(ASSET_PATH, 'mappings/ko_groups.oxygenAssociated.07Feb2023')
-#     return pd.read_csv(p, index_col=0)
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -72,19 +63,14 @@ def read_params(args:argparse.ArgumentParser, model_class:str='nonlinear') -> Di
     return params
 
 
-def save_results_dict(results:Dict, path:str, fmt:str='json') -> NoReturn:
+def save_results_dict(results:Dict, path:str) -> NoReturn:
     '''Write a dictionary of results to the output path.
 
     :param results: A dictionary containing results from a model run, cross-validation, etc.
     :param path: The path to write the results to. 
-    :param format: Either 'json' or 'pkl', specifies how to save the results.
     '''
-    if fmt == 'pkl': # If specified, save results in a pickle file.
-        with open(path, 'wb') as f:
-            pickle.dump(results, f) 
-    elif fmt == 'json': # If specified, save results in a json file.
-        with open(path, 'w') as f:
-            json.dump(results, f, cls=NumpyEncoder)
+    with open(path, 'w') as f:
+        json.dump(results, f, cls=NumpyEncoder)
 
 
 def load_results_dict(path:str) -> Dict:
