@@ -3,27 +3,11 @@
 
 #SBATCH --time=99:00:00   # walltime
 #SBATCH --mem=100GB
-python ~/aerobot/scripts/train.py 'logistic' -f aa_1mer
-python ~/aerobot/scripts/train.py 'logistic' -f aa_2mer
-python ~/aerobot/scripts/train.py 'logistic' -f aa_3mer
-python ~/aerobot/scripts/train.py 'logistic' -f KO
-python ~/aerobot/scripts/train.py 'logistic' -f nt_1mer
-python ~/aerobot/scripts/train.py 'logistic' -f nt_2mer
-python ~/aerobot/scripts/train.py 'logistic' -f nt_3mer
-python ~/aerobot/scripts/train.py 'logistic' -f nt_4mer
-python ~/aerobot/scripts/train.py 'logistic' -f nt_5mer
-python ~/aerobot/scripts/train.py 'logistic' -f chemical
+python ~/aerobot/scripts/train.py 'logistic' 
 
-python ~/aerobot/scripts/train.py 'nonlinear' -f aa_1mer
-python ~/aerobot/scripts/train.py 'nonlinear' -f aa_2mer
-python ~/aerobot/scripts/train.py 'nonlinear' -f aa_3mer
-python ~/aerobot/scripts/train.py 'nonlinear' -f KO
-python ~/aerobot/scripts/train.py 'nonlinear' -f nt_1mer
-python ~/aerobot/scripts/train.py 'nonlinear' -f nt_2mer
-python ~/aerobot/scripts/train.py 'nonlinear' -f nt_3mer
-python ~/aerobot/scripts/train.py 'nonlinear' -f nt_4mer
-python ~/aerobot/scripts/train.py 'nonlinear' -f nt_5mer
-python ~/aerobot/scripts/train.py 'nonlinear' -f chemical
+
+python ~/aerobot/scripts/train.py 'nonlinear' 
+
 
 # python ~/aerobot/scripts/count-aa-kmers.py -i ~/aerobot/results/black_sea/bs_contigs.faa -o ~/aerobot/results/black_sea/bs_aa_3mer_from_contigs.csv -k 3 
 # python ~/aerobot/scripts/count-aa-kmers.py -i ~/aerobot/results/black_sea/bs_contigs.faa -o ~/aerobot/results/black_sea/bs_aa_2mer_from_contigs.csv -k 2 

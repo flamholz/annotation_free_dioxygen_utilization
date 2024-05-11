@@ -47,7 +47,8 @@ def dataset_normalize(dataset:Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame
     :param dataset
     :return: A dataset with constant-sum normalized rows. 
     '''
-    dataset['features'] = dataset['features'].apply(lambda row : row / row.sum(), axis=0)
+    dataset['features'] = dataset['features'].apply(lambda row : row / row.sum(), axis=1)
+    #assert np.all(dataset['features'].values.sum(axis=1) == 1), 'dataset_normalize: Normalization failed.'
     return dataset
 
 

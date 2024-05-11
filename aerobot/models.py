@@ -279,6 +279,7 @@ class GeneralClassifier():
 
         if (X_val is not None) and (y_val is not None):
             X_val = X_val if (not self.scaler) else self.scaler.transform(X_val)
+            # X_val = X_val if (not self.scaler) else self.scaler.fit_transform(X_val)
             self.classifier.fit(X, y, X_val=X_val, y_val=y_val)
         else:
             self.classifier.fit(X, y)
