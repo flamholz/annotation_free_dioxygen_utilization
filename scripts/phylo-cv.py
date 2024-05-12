@@ -14,35 +14,6 @@ import pandas as pd
 # TODO: How can I write tests for this? 
 LEVELS = ['Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species'] # Define the taxonomic levels. Kingdom is ommitted.
 
-def print_taxonomy_info(level:str='Class', feature_type:str='KO') -> NoReturn:
-    '''Print taxonomy information about the entries in the input dataset. Note that the number of unclassified entries
-    printed by this function does not necessarily match the build_datasets.py output, as the counting performed by that script
-    is done prior to de-duplication.
-    
-    :param level: The taxonomic level for which to display information.
-    :param feature_type: The feature type for which to load the data. Results should be the same regardless of feature type.
-    '''
-    # Make sure the dataset has been loaded as a pandas DataFrame, not a numpy array. 
-    # assert isinstance(dataset['labels'], pd.DataFrame), 'print_phylogenetic_info: There is no phylogenetic information in the dataset.'
-    assert level in ['Kingdom', 'Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species'], f'print_phylogenetic_info: Phylogenetic level {level} is invalid.'
-    dataset = dataset_load_all(feature_type=feature_type, to_numpy=False)
-    labels = dataset['labels']
-    tax_info = labels[[level]] # This is the GTDB taxonomy for each entry.
-    n_unclassified = np.sum(tax_info[level].str.match('no rank').values) # Get number of unclassified entries. 
-    tax_info = tax_info[~tax_info[level].str.match('no rank')] # Remove anything labeled "no rank"
-    sizes = []
-    print(f'Summary of GTDB taxonomy for level {level.lower()}...')
-    for taxon, info in tax_info.groupby(level):
-        sizes.append(len(info))
-        print('\t' + taxon, f'(n={len(info)})')
-
-    mean = np.round(np.mean(sizes), 2)
-    std = np.round(np.std(sizes), 2)
-    print(f'\nMean number of members per {level.lower()}: {mean} +/- {std}')
-    print(f'Smallest {level.lower()} size: {min(sizes)}')
-    print(f'Largest {level.lower()} size: {max(sizes)}')
-    print(f'Number of unclassified entries:', n_unclassified)
-
 
 def check_splits(splits:List, tax_data:pd.DataFrame=None, level:str=None) -> NoReturn:
     '''Checks to make sure the behavior of GroupShuffleSplit is as expected. Specifically, 
@@ -130,31 +101,17 @@ def phylogenetic_cross_validation(dataset:Dict[str, pd.DataFrame], n_splits:int=
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('model-class', choices=['nonlinear', 'logistic', 'randrel', 'meanrel'], help='The type of model to train.')
+    parser.add_argument('model-class', choices=['nonlinear', 'logistic'], help='The type of model to train.')
     parser.add_argument('--n-splits', default=25, type=int, help='The number of folds for K-fold cross validation.')
     parser.add_argument('--feature-type', type=str, default=None, choices=FEATURE_SUBTYPES + FEATURE_TYPES + [None], help='The feature type on which to train.')
-    parser.add_argument('--out', '-o', default='phylo_bias_results.json', help='The location to which the pickled results will be written.')
-    parser.add_argument('--output-format', default='json', choices=['pkl', 'json'], help='Format of the results file.')
     parser.add_argument('--binary', default=0, type=bool, help='Whether to train on the binary classification task. If False, then ternary classification is performed.')
-    # Optional parameters for Nonlinear classifiers. 
-    parser.add_argument('--n-epochs', default=100, type=int, help='The maximum number of epochs to train the Nonlinear classifier.') 
-    parser.add_argument('--lr', default=0.0001, type=float, help='The learning rate for training the Nonlinear classifier.') 
-    parser.add_argument('--weight-decay', default=0.01, type=float, help='The L2 regularization penalty to be passed into the Adam optimizer of the Nonlinear classifier.') 
-    parser.add_argument('--batch-size', default=16, type=int, help='The size of the batches for Nonlinear classifier training') 
-    parser.add_argument('--alpha', default=10, type=int, help='The early stopping threshold for the Nonlinear classifier.') 
-    parser.add_argument('--early-stopping', default=0, type=bool, help='Whether or not to use early stopping during Nonlinear classifier training.') 
-    parser.add_argument('--hidden-dim', default=512, type=int, help='The number of nodes in the second linear layer of the Nonlinear classifier.')
-    # Optional parameters for LogisticRegression classifiers.
-    parser.add_argument('--C', default=100, type=float, help='Inverse of regularization strength for the LogisticRegression classifier' ) 
-    parser.add_argument('--penalty', default='l2', type=str, help='The norm of the penalty term for the LogisticRegression classifier.') 
-    parser.add_argument('--max-iter', default=10000, type=int, help='Maximum number of iterations for the LogisticRegression classifier.') 
 
     args = parser.parse_args()
     model_class = getattr(args, 'model-class') # Get the model class to run.
     params = read_params(args, model_class=model_class) # Read in model parameter specifications from the command line input.
     dataset, _ = dataset_load_training_validation(args.feature_type, binary=args.binary, to_numpy=False) # Load the training dataset without converting to numpy arrays (yet).
     
-    assert (args.feature_type is None) or (not (model_class in ['meanrel', 'randrel'])), 'If model class is meanrel or randrel, feature_type should be None.'
+    # assert (args.feature_type is None) or (not (model_class in ['meanrel', 'randrel'])), 'If model class is meanrel or randrel, feature_type should be None.'
 
     # Should probably report the standard deviation, mean, and standard error for each run.
     scores = {l:{'std':None, 'mean':None, 'err':None} for l in LEVELS}
@@ -176,3 +133,33 @@ if __name__ == '__main__':
 
     print(f'\nWriting results to {args.out}.')
     save_results_dict(results, args.out, fmt=args.output_format)
+
+
+# def print_taxonomy_info(level:str='Class', feature_type:str='KO') -> NoReturn:
+#     '''Print taxonomy information about the entries in the input dataset. Note that the number of unclassified entries
+#     printed by this function does not necessarily match the build_datasets.py output, as the counting performed by that script
+#     is done prior to de-duplication.
+    
+#     :param level: The taxonomic level for which to display information.
+#     :param feature_type: The feature type for which to load the data. Results should be the same regardless of feature type.
+#     '''
+#     # Make sure the dataset has been loaded as a pandas DataFrame, not a numpy array. 
+#     # assert isinstance(dataset['labels'], pd.DataFrame), 'print_phylogenetic_info: There is no phylogenetic information in the dataset.'
+#     assert level in ['Kingdom', 'Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species'], f'print_phylogenetic_info: Phylogenetic level {level} is invalid.'
+#     dataset = dataset_load_all(feature_type=feature_type, to_numpy=False)
+#     labels = dataset['labels']
+#     tax_info = labels[[level]] # This is the GTDB taxonomy for each entry.
+#     n_unclassified = np.sum(tax_info[level].str.match('no rank').values) # Get number of unclassified entries. 
+#     tax_info = tax_info[~tax_info[level].str.match('no rank')] # Remove anything labeled "no rank"
+#     sizes = []
+#     print(f'Summary of GTDB taxonomy for level {level.lower()}...')
+#     for taxon, info in tax_info.groupby(level):
+#         sizes.append(len(info))
+#         print('\t' + taxon, f'(n={len(info)})')
+
+#     mean = np.round(np.mean(sizes), 2)
+#     std = np.round(np.std(sizes), 2)
+#     print(f'\nMean number of members per {level.lower()}: {mean} +/- {std}')
+#     print(f'Smallest {level.lower()} size: {min(sizes)}')
+#     print(f'Largest {level.lower()} size: {max(sizes)}')
+#     print(f'Number of unclassified entries:', n_unclassified)

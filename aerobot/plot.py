@@ -32,7 +32,7 @@ def plot_training_curve(results:Dict, path:str=None) -> NoReturn:
 
     # Extract some information from the results dictionary. 
     train_losses = results.get('training_losses', [])
-    train_accs = results.get('training_acss', [])
+    train_accs = results.get('training_accs', [])
     val_losses = results.get('validation_losses', [])
     val_accs = results.get('validation_accs', [])
     feature_type = results['feature_type']

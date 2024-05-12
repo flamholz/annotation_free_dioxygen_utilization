@@ -1,0 +1,1 @@
+{"training_acc": 0.41264097861357546, "validation_acc": 0.41361059519040505, "classes": ["aerobe", "anaerobe", "facultative"], "confusion_matrix": [263, 76, 0, 130, 113, 0, 58, 19, 0], "f1_score": 0.5272888093793776, "n_iter": 49, "converged": true, "feature_type": "cds_1mer", "model_class": "logistic", "binary": 0}

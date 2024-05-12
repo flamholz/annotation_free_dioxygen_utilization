@@ -1,0 +1,1 @@
+{"training_acc": 0.6128140102770546, "validation_acc": 0.6138485256807118, "classes": ["aerobe", "anaerobe", "facultative"], "confusion_matrix": [309, 30, 0, 17, 226, 0, 55, 22, 0], "f1_score": 0.7614456120627136, "n_iter": 10, "converged": true, "feature_type": "metadata.pct_oxygen_genes", "model_class": "logistic", "binary": 0}
