@@ -64,7 +64,7 @@ def dataset_to_numpy(dataset:Dict[str, pd.DataFrame]) -> Dict[str, np.ndarray]:
         The labels array is one dimensional and of length n, and is of type np.object_.
     '''
     numpy_dataset = dict() # Create a new dataset.
-    numpy_dataset['features'] = dataset['features'].values # .astype(np.float32)
+    numpy_dataset['features'] = None if dataset['features'] is None else dataset['features'].values # .astype(np.float32)
     numpy_dataset['labels'] = dataset['labels'].physiology.values
     return numpy_dataset
 
@@ -90,12 +90,12 @@ def dataset_clean(dataset:Dict[str, pd.DataFrame], feature_type:str=None, binary
         label_map = {"Aerobe": "aerobe", "Facultative": "facultative", "Anaerobe": "anaerobe"}
     dataset['labels'].physiology = dataset['labels'].physiology.replace(label_map) # Format the labels.
 
-    # Ensure that the column ordering in the dataset matches the reference. This should remove
-    # all columns which were NaN in the training set. 
-    dataset['features'] = dataset['features'][dataset_load_feature_order(feature_type)]
-    dataset['features'] = dataset['features'].fillna(0) # Fill in remaining NaNs with zeros. 
-
-    dataset = dataset_align(dataset) # Align the features and labels indices.
+    if dataset['features'] is not None:
+        # Ensure that the column ordering in the dataset matches the reference. This should remove
+        # all columns which were NaN in the training set. 
+        dataset['features'] = dataset['features'][dataset_load_feature_order(feature_type)]
+        dataset['features'] = dataset['features'].fillna(0) # Fill in remaining NaNs with zeros. 
+        dataset = dataset_align(dataset) # Align the features and labels indices.
 
     return dataset
 
@@ -105,7 +105,7 @@ def dataset_load(path:str, feature_type:str=None, normalize:bool=True) -> Dict:
     features in the dataset at this point. 
     
     :param feature_type: Feature type to load from the HDF file. If None, genome IDs are used 
-        as the feature type (for working with MeanRelative and RandRelative classifiers).
+        as the feature type (for working with MeanRelative classifiers).
     :param path: Path to the HDF dataset to load. 
     :return: A dictionary with keys 'features' and 'labels' containing the feature data and metadata.
     '''
@@ -116,13 +116,11 @@ def dataset_load(path:str, feature_type:str=None, normalize:bool=True) -> Dict:
         feature_type, subtype = feature_type.split('.')
         
     dataset = load_hdf(path, feature_type=feature_type) # Read from the HDF file.
-    if dataset['features'] is None:
-        dataset['features'] = pd.DataFrame({'genome_id':dataset['labels'].index}, index=dataset['labels'].index)
     if subtype is not None: # If a feature subtype is given, extract the information from the metadata.
         dataset['features'] = dataset['features'][[subtype]]
 
     # If the normalize option is specified, and the feature type is "normalizable," then normalize the rows.
-    is_normalizable_feature_type = ('aa_' in feature_type) or ('nt_' in feature_type) or ('cds_' in feature_type)
+    is_normalizable_feature_type = (feature_type is not None) and (('aa_' in feature_type) or ('nt_' in feature_type) or ('cds_' in feature_type))
     if normalize and is_normalizable_feature_type:
         dataset = dataset_normalize(dataset)
 

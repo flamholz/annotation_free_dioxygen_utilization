@@ -56,7 +56,7 @@ def read_params(args:argparse.ArgumentParser, model_class:str='nonlinear') -> Di
         params.update({param:getattr(args, param) for param in param_options})
         # Need to specify the number of classes for Nonlinear, as this is the dimension of the output layer.
         params.update({'n_classes':3 if not args.binary else 2})
-    elif model_class == 'logisic':
+    elif model_class == 'logistic':
         param_options = ['C', 'penalty', 'max_iter']
         params.update({param:getattr(args, param) for param in param_options})
     # If not logistic or nonlinear, as in the case of randrel and meanrel, params is an empty dictionary.
