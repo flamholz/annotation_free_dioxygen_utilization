@@ -177,3 +177,24 @@ def dataset_load_training_validation(feature_type:str, binary:bool=False, to_num
         training_dataset = dataset_to_numpy(training_dataset)
 
     return training_dataset, validation_dataset
+
+
+def dataset_clean_features(df:pd.DataFrame, feature_type:str='aa_3mer'):
+    '''Make sure the features in the input data match the features (including order) of the data on 
+    which the model was trained.
+
+    :param df: The data on which to run the model.
+    :param feature_type: The feature type of the data in the DataFrame.
+    '''
+    feature_order = dataset_load_feature_order(feature_type) # Load in the correct features.
+    
+    missing = 0
+    for f in feature_order:
+        # If the data is missing a feature, fill it in with zeros.
+        if f not in df.columns:
+            missing += 1
+            df[f] = np.zeros(len(df))
+
+    print('dataset_clean_features:', missing, feature_type, 'features are missing from the input data. Filled missing data with 0.')
+    df = df[feature_order] # Ensure the feature ordering is consistent. 
+    return df

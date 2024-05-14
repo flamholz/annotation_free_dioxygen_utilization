@@ -5,6 +5,9 @@ import os
 from typing import Dict, NoReturn, Tuple
 import json
 import argparse
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 import pickle
 
 CWD, _ = os.path.split(os.path.abspath(__file__))
@@ -114,6 +117,37 @@ def load_hdf(path:str, feature_type:str) -> Dict[str, pd.DataFrame]:
     dataset['features'] = None if feature_type is None else pd.read_hdf(path, key=feature_type)
     dataset['labels'] = pd.read_hdf(path, key='labels')
     return dataset
+
+
+def load_fasta(path:str) -> pd.DataFrame:
+    '''Read in a FASTA file, and generate a DataFrame mapping each contig ID to its
+    corresponding amino acid sequence.  
+
+    :param path: The path to the FASTA file. 
+    :return: A DataFrame containing the sequences in the FASTA file. 
+    
+    '''
+    df = {'header':[], 'contig_id':[], 'seq':[]}
+    contig_id = 1
+    for record in SeqIO.parse(path, 'fasta'):
+        df['header'].append(str(record.id))
+        df['contig_id'].append(contig_id)
+        df['seq'].append(str(record.seq))
+    return pd.DataFrame(df)
+
+
+def save_fasta(df:pd.DataFrame, path:str=None) -> NoReturn:
+    '''Write a DataFrame containing information stored in a FASTA file to a FASTA file at the
+    specified path.
+    
+    :param df: A DataFrame containing, at minimum, header and seq columns. 
+    :param path: The path where the FASTA file will be written.
+    '''
+    records = [SeqRecord(Seq(row.seq), id=row.header, description='', name='') for row in df.itertuples()]
+    # Use the SeqIO module to write the list of SequenceRecord objects to the specified file. 
+    with open(path, 'w') as f:
+        SeqIO.write(records, f, 'fasta')
+    
 
 
 

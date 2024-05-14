@@ -43,7 +43,6 @@ def get_nt_ids(genome_id:str):
     return results['IdList']
 
 
-
 def download_genomes(genome_ids, output_path:str=None, complete_only:bool=False):
 
     for genome_id in genome_ids:

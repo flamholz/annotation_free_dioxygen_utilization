@@ -10,13 +10,17 @@ from typing import Tuple, NoReturn, List, Dict
 from sklearn.linear_model import LogisticRegression
 import pandas as pd
 import inspect
+import warnings 
 
+# warning.simplefilter('ignore')
 
 # Use a GPU if one is available. 
 if torch.cuda.is_available():
     device = torch.device('cuda')
 else:
     device = torch.device('cpu')
+
+
 
 class Nonlinear(torch.nn.Module):
     '''Two-layer neural network for classification.'''
@@ -178,13 +182,21 @@ class Nonlinear(torch.nn.Module):
 
 
 class GeneralClassifier():
-    def __init__(self, model_class, params:Dict[str, object]=None, normalize:bool=True):
+
+    # Default parameters for the logistic-based classifier. 
+    logistic_default_params = {'C':100, 'max_iter':100000, 'penalty':'l2'}
+
+    def __init__(self, model_class, params:Dict[str, object]=dict(), normalize:bool=True):
         '''Initialization function for a general classifier.
 
         :param model_class: Model class to fit. The class must implement the fit, predict, and score methods. 
         :param params: A dictionary of parameters to pass into the model_class instantiator.
         :param normalize: Whether or not to standardize the input data.
         '''
+        # Fill in default parameters for the LogisticRegression-based model if none are specified. 
+        if model_class == LogisticRegression: # Can't use isinstance here, because it's not an instance yet. 
+            params.update({k:v for k, v in GeneralClassifier.logistic_default_params.items() if k not in params})
+
         self.classifier = model_class(**params) if params else model_class()
         self.scaler = StandardScaler() if normalize else None
         self.n_classes = None # To be populated after fitting the model, indicated binary or ternary classification. 

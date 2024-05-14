@@ -39,6 +39,19 @@ def kmer_count_gz(path, k:int=3) -> Dict[str, int]:
             kmers = kmer_sequence_to_kmers(seq, kmer, k=k)
     return kmers
     
+def kmer_count_dataframe(df:pd.DataFrame, k:int=3) -> Dict[str, int]:
+    '''Count the k-mers for sequences stored in a pandas DataFrame. 
+
+    :param df: A DataFrame containing sequences over which k-mers will be counted. K-mer counts are accumulated
+        over all sequences in the DataFrame. 
+    :param k: The k-mer length. 
+    :return: A dictionary mapping k-mers to their counts in the DataFrame.
+    '''
+    kmers = dict()
+    for row in df.itertuples():
+        kmers = kmer_sequence_to_kmers(row.seq, kmers, k=k)
+    return kmers
+
 
 def kmer_count_fasta(path:str, k:int=3) -> Dict[str, int]:
     '''Count k-mers stored in a non-compressed FASTA file (with a .fa, .fn, etc. extension).
@@ -52,6 +65,8 @@ def kmer_count_fasta(path:str, k:int=3) -> Dict[str, int]:
         # Parse the FASTA file and iterate through each record.
         for record in SeqIO.parse(f, 'fasta'):
             seq = str(record.seq) 
-            kmers = kmer_sequence_to_kmers(seq, kmer, k=k)
+            kmers = kmer_sequence_to_kmers(seq, kmers, k=k)
     return kmers
+
+
 

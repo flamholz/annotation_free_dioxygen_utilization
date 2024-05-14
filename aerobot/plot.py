@@ -10,22 +10,49 @@ import seaborn as sns
 from typing import Dict, NoReturn, List
 import os
 
-# TODO: Work this in to the io.py module. Also add other feature types. 
-PRETTY_NAMES = {'KO':'All gene families', 'embedding.geneset.oxygen':'Five-gene set', 'chemical':'Chemical features', 'aa_1mer':'Amino acid counts', 'aa_3mer':'Amino acid trimers'}
+
+def plot_configure_mpl(n_colors:int=6, title_font_size:int=12, label_font_size:int=8):
+    # Some specs to make plots look nice. 
+    plt.rc('font', **{'family':'sans-serif', 'sans-serif':['Arial'], 'size':label_font_size})
+    plt.rc('xtick', **{'labelsize':label_font_size})
+    plt.rc('ytick', **{'labelsize':label_font_size})
+    plt.rc('axes',  **{'titlesize':title_font_size, 'labelsize':label_font_size})
+    # plt.rcParams['image.cmap'] = 'Paired'
+
+    plt.rcParams['image.cmap'] = 'Blues'
+    plt.rcParams['axes.prop_cycle'] = plt.cycler('color', plt.cm.Blues(np.linspace(0.2, 1, n_colors)[::-1]))
+
+
+# Pretty names for each feature type, for plotting. 
+PRETTY_NAMES = {'KO':'Gene families', 'embedding.geneset.oxygen':'Oxygen gene set', 'chemical':'Chemical features'}
+PRETTY_NAMES['aa_1mer'] = 'Amino acid counts'
+PRETTY_NAMES['aa_2mer'] = 'Amino acid dimers'
+PRETTY_NAMES['aa_3mer'] = 'Amino acid trimers'
+PRETTY_NAMES['nt_1mer'] = 'Nucleotide counts'
+PRETTY_NAMES['nt_2mer'] = 'Nucleotide dimers'
+PRETTY_NAMES['nt_3mer'] = 'Nucleotide trimers'
+PRETTY_NAMES['cds_1mer'] = 'CDS amino acid counts'
+PRETTY_NAMES['cds_2mer'] = 'CDS amino acid dimers'
+PRETTY_NAMES['cds_3mer'] = 'CDS amino acid trimers'
 PRETTY_NAMES.update({'embedding.genome':'Genome embedding', 'metadata':'Metadata'})
-PRETTY_NAMES.update({f'nt_{i}mer':f'Nucleotide {i}-mer' for i in range(1, 6)})
-PRETTY_NAMES.update({f'cds_{i}mer':f'CDS {i}-mer' for i in range(1, 6)})
-PRETTY_NAMES.update({f'aa_{i}mer':f'Amino acid {i}-mer' for i in range(2, 3)})
+PRETTY_NAMES.update({f'nt_{i}mer':f'Nucleotide {i}-mer' for i in range(4, 6)})
+PRETTY_NAMES.update({f'cds_{i}mer':f'CDS {i}-mer' for i in range(4, 6)})
 
 
-CMAP = mpl.colormaps['GnBu']
-COLORS = ['tab:gray', 'tab:green', 'tab:blue', 'tab:olive', 'tab:cyan', 'tab:brown']
+ANNOTATION_BASED_FEATURE_TYPES = ['metadata.oxygen_genes', 'metadata.pct_oxygen_genes', 'KO', 'embedding.geneset.oxygen']
+# All remaining feature types are "annotation-free."
+ANNOTATION_FREE_FEATURE_TYPES = [f for f in FEATURE_SUBTYPES + FEATURE_TYPES if f not in ANNOTATION_BASED_FEATURE_TYPES]
 
-# TODO: Update this for all feature types. 
-ANNOTATED = ['KO', 'embedding.geneset.oxygen'] 
-UNANNOTATED = ['chemical', 'aa_1mer', 'aa_3mer']
 
-def plot_training_curve(results:Dict, path:str=None) -> NoReturn:
+def plot_order_feature_types(feature_types) -> List[str]:
+    '''Order the input list of feature types such that annotation-based feature types and annotation-free
+    feature types are grouped together.'''
+    ordered_feature_types = [f for f in feature_types if f in ANNOTATION_BASED_FEATURE_TYPES]
+    ordered_feature_types += [f for f in feature_types if f in ANNOTATION_FREE_FEATURE_TYPES]
+    return ordered_feature_types
+
+
+def plot_training_curve(results:Dict, ax:plt.Axes=None) -> NoReturn:
     '''Plot the Nonlinear classifier training curve. Save the in the current working directory.'''
     assert results['model_class'] == 'nonlinear', 'plot_training_curve: Model class must be Nonlinear.'
     assert 'training_losses' in results, 'plot_training_curve: Results dictionary must contain training losses.'
@@ -37,14 +64,13 @@ def plot_training_curve(results:Dict, path:str=None) -> NoReturn:
     val_accs = results.get('validation_accs', [])
     feature_type = results['feature_type']
 
-    fig, loss_ax = plt.subplots()
     acc_ax = loss_ax.twinx() # Create another axis for displaying accuracy.
     loss_ax.set_title(f'{PRETTY_NAMES[feature_type]} training curve') # Set the title.
 
-    lines = loss_ax.plot(train_losses, c=COLORS[0], label='training loss')
-    lines += loss_ax.plot(val_losses, c=COLORS[0], linestyle='--', label='validation loss')
+    lines = loss_ax.plot(train_losses, label='training loss')
+    lines += loss_ax.plot(val_losses, linestyle='--', label='validation loss')
     lines += acc_ax.plot(val_accs, linestyle='--', c=COLORS[1], label='validation accuracy')
-    lines += acc_ax.plot(train_accs, c=COLORS[1], label='training accuracy')
+    lines += acc_ax.plot(train_accs, label='training accuracy')
 
     loss_ax.set_ylabel('MSE loss')
     loss_ax.set_xlabel('epoch') # Will be the same for both axes.
@@ -54,105 +80,51 @@ def plot_training_curve(results:Dict, path:str=None) -> NoReturn:
     acc_ax.legend(lines, ['training loss', 'validation loss', 'validation accuracy', 'training accuracy'])
 
     plt.tight_layout()
-    if path is not None:
-        plt.savefig(path, dpi=500, format='PNG', bbox_inches='tight')
-        plt.close()  # Prevent figure from being displayed in notebook.
-    else:
-        plt.show()
 
 
-def _format_barplot_axes(ax:plt.Axes, feature_types:List[str]=None, binary:bool=False):
 
-    random_baseline = 0.5 if binary else 0.33 # Expected performance for random classifier on task. 
+def plot_model_accuracy_barplot(results:Dict[str, Dict], ax:plt.Axes=None, colors=['tab:blue', 'tab:green']) -> NoReturn:
+    '''Plot a barplot which displays the training and validation accuracy for a model type trained on different 
+    feature types. 
 
-    # Label bins with the feature name. 
-    ax.set_xticks(np.arange(0, len(feature_types), 1), [PRETTY_NAMES[f] for f in feature_types], rotation=45, ha='right')
-    
-    # Set up left y-axis with the balanced accuracy information. 
-    ax.set_ylabel('balanced accuracy')
-    ax.set_ylim(0, 1)
-    ax.set_yticks(np.arange(0, 1.1, 0.1))
-    ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1)) # xmax is the number to divide by for the percentage.
-    # Add a second set of y-ticks on the right to indicate percentage performance increase over random (33% accurate)
-    new_ax = ax.twinx()
-    new_ax.set_ylim(0, 1)
-    yticks = np.round(100 * (np.arange(0, 1.1, 0.1) - random_baseline) / random_baseline, 0)
-    ytick_labels = [f'{v:.0f}%' for v in yticks]
-    new_ax.set_yticks(yticks, ytick_labels)
-    new_ax.set_ylabel('percent above random')
+    :param results: A dictionary mapping each feature type to the training results generated by train.py.
+    :param ax: A matplotlib Axes object on which to plot the figure. 
+    :param colors: A list of two colors to distinguish between annotation-based and annotation-free feature types.
+    '''
+    # Make sure annotation-based and annotation free are iterated over in clumps. 
+    feature_types = plot_order_feature_types(set(results.keys()))
 
-    # Add horizontal line marking model performance with random classification. 
-    ax.axhline(random_baseline, color='grey', linestyle='--', linewidth=2, zorder=-10)
+    def _format_barplot_axes(ax:plt.Axes):
 
-    plt.sca(ax) # Just in case creating the new axis messes things up. 
+        random_baseline = 0.5 if results[feature_types[0]]['binary'] else 0.33 # Expected performance for random classifier on task. 
+        # Label bins with the feature name. 
+        ax.set_xticks(np.arange(0, len(feature_types), 1), [PRETTY_NAMES[f] for f in feature_types], rotation=45, ha='right')
+        # Set up y-axis with the balanced accuracy information. 
+        ax.set_ylabel('balanced accuracy')
+        ax.set_ylim(0, 1)
+        ax.set_yticks(np.arange(0, 1.1, 0.1))
+        ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1)) # xmax is the number to divide by for the percentage.
+        # Add horizontal line marking model performance with random classification. 
+        ax.axhline(random_baseline, color='grey', linestyle='--', linewidth=2, zorder=-10)
 
-
-def plot_model_accuracy_barplot(results:Dict[str, Dict]=None, path:str=None) -> NoReturn:
-
-    # Two bars per model, one for training accuracy and one for validation accuracy
-    fig, ax = plt.subplots(1, figsize=(9, 3))
-
-    feature_types = list(results.keys())
     # Extract the final balanced accuracies on training and validation sets from the results dictionaries. 
     train_accs  = [results[feature_type]['training_acc'] for feature_type in feature_types]
     val_accs  = [results[feature_type]['validation_acc'] for feature_type in feature_types]
-    binary = results[feature_types[0]]['binary'] # Assume all have the same value, but might want to add a check.
 
-    plt.title('Ternary classification' if not binary else 'Binary classification', loc='left')
-    
-    colors = [COLORS[1] if f in UNANNOTATED else COLORS[2] for f in feature_types] # Map annotation-free or -full features to different colors. 
+    # Map annotation-free or annotation-based features to different colors. 
+    colors = [colors[0] if f in ANNOTATION_BASED_FEATURE_TYPES else colors[1] for f in feature_types] 
     ax.bar(np.arange(0, len(feature_types), 1) - 0.2, train_accs, width=0.4, label='training', color=colors, edgecolor='k', linewidth=0.5, hatch='//')
     ax.bar(np.arange(0, len(feature_types), 1) + 0.2, val_accs, width=0.4, label='validation', color=colors, edgecolor='k', linewidth=0.5)
 
     # Custom legend. Colors indicate annotation-free or annotation-full, and hatching indicates training or validation set. 
     handles = [plt.Rectangle((0, 0), 1, 1, facecolor='white', edgecolor='k', linewidth=0.5, hatch='////')]
     handles.append(plt.Rectangle((0, 0), 1, 1, facecolor='white', edgecolor='k', linewidth=0.5, hatch=''))
-    handles.append(plt.Rectangle((0, 0), 1, 1, facecolor=COLORS[1], edgecolor='k', linewidth=0.5))
-    handles.append(plt.Rectangle((0, 0), 1, 1, facecolor=COLORS[2], edgecolor='k', linewidth=0.5))
-    labels = ['training', 'validation', 'annotation-free', 'with annotation']
+ 
+    labels = ['training', 'validation']
     plt.legend(handles, labels, ncol=2, fontsize=7, columnspacing=0.3, handletextpad=0.3, loc='upper left', bbox_to_anchor=(0.25, 0.99))
 
-    _format_barplot_axes(ax, feature_types=feature_types, binary=binary)
+    _format_barplot_axes(ax)
 
-    plt.tight_layout()
-    if path is not None:
-        plt.savefig(path, dpi=500, format='PNG', bbox_inches='tight')
-        plt.close()  # Prevent figure from being displayed in notebook.
-    else:
-        plt.show()
-
-
-def plot_model_comparison_barplot(nonlinear_results:Dict[str, Dict], logistic_results:Dict[str, Dict], path:str=None) -> NoReturn:
-
-    fig, ax = plt.subplots(1, figsize=(9, 3))
-
-    feature_types = list(nonlinear_results.keys())
-    for feature_type in feature_types:
-        assert feature_type in logistic_results, f'plot_nonlinear_logistic_comparison_barplot: {feature_type} is missing in the logistic regression results.'
-    
-    # Extract the final balanced accuracies on from the results dictionaries. 
-    nonlinear_val_accs  = [nonlinear_results[feature_type]['validation_acc'] for feature_type in feature_types]
-    logistic_val_accs  = [logistic_results[feature_type]['validation_acc'] for feature_type in feature_types]
-    binary = nonlinear_results[feature_types[0]]['binary'] # Assume all have the same value, but might want to add a check.
-    
-    plt.title('Ternary classification' if not binary else 'Binary classification', loc='left')
-
-    ax.bar(np.arange(0, len(feature_types), 1) - 0.2, logistic_val_accs, width=0.4, label='logistic', color=COLORS[0], edgecolor='k', linewidth=0.5)
-    ax.bar(np.arange(0, len(feature_types), 1) + 0.2, nonlinear_val_accs, width=0.4, label='nonlinear', color=COLORS[1], edgecolor='k', linewidth=0.5)
-
-    # Custom legend. Colors indicate annotation-free or annotation-full, and hatching indicates training or validation set. 
-    handles = [plt.Rectangle((0, 0), 1, 1, facecolor=COLORS[0], edgecolor='k', linewidth=0.5)]
-    handles.append(plt.Rectangle((0, 0), 1, 1, facecolor=COLORS[1], edgecolor='k', linewidth=0.5))
-    plt.legend(handles, ['logistic', 'nonlinear'], ncol=2, fontsize=7, columnspacing=0.3, handletextpad=0.3, loc='upper left', bbox_to_anchor=(0.25, 0.99))
-
-    _format_barplot_axes(ax, feature_types=feature_types, binary=binary)
-
-    plt.tight_layout()
-    if path is not None:
-        plt.savefig(path, dpi=500, format='PNG', bbox_inches='tight')
-        plt.close()  # Prevent figure from being displayed in notebook.
-    else:
-        plt.show()
 
 
 def plot_confusion_matrices(results:Dict[str, Dict], path:str=None) -> NoReturn:

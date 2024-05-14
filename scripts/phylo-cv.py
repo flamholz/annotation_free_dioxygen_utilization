@@ -19,7 +19,7 @@ LEVELS = ['Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species'] # Define the
 
 class MeanRelative():
     '''Classifier which makes a metabolic prediction based on the average of the metabolisms of the closest relatives.'''
-    def __init__(self, level:str='Phylum'):
+    def __init__(self, level:str='Phylum', n_classes:int=3):
         '''Initialize a MeanRelative classifier.
         
         :param tax_data: A DataFrame containing taxonomy information for each genome and their physiologies.
@@ -30,6 +30,7 @@ class MeanRelative():
         self.labels =  pd.read_hdf(os.path.join(DATA_PATH, 'updated_all_datasets.h5'), key='labels').physiology.values 
         self.encoder = OneHotEncoder(handle_unknown='error', sparse_output=False)
         self.level = level
+        self.n_classes = n_classes # Store the number of classes.
 
 
     def _get_means(self) -> Dict[str, str]:
@@ -52,7 +53,6 @@ class MeanRelative():
     def fit(self, X:np.ndarray, y:np.ndarray):
         '''Generates the mean relative for each taxonomy group at the specified level.'''
 
-        self.n_classes = len(np.unique(y.ravel())) # Store the number of classes.
         self.classes_ = np.unique(y).ravel() # Store the classes.
 
         if self.n_classes == 2: # If the task is binary classification...
@@ -75,7 +75,7 @@ class MeanRelative():
         return y_pred
 
 
-def phylogenetic_cross_validation(dataset:Dict[str, pd.DataFrame], n_splits:int=25, level:str='Class', model_class:str='nonlinear') -> Dict:
+def phylogenetic_cross_validation(dataset:Dict[str, pd.DataFrame], n_splits:int=25, level:str='Class', model_class:str='nonlinear', binary:bool=False) -> Dict:
     '''Perform cross-validation using holdout sets partitioned according to the specified taxonomic level. For example, if the 
     specified level is 'Class', then the closest relative to any member of the holdout set will be an organism in the same phylum. If 
     the level is 'Family', then the closest relative to any member of the holdout set will be an organism in the same order... etc.
@@ -104,13 +104,13 @@ def phylogenetic_cross_validation(dataset:Dict[str, pd.DataFrame], n_splits:int=
     scores = []
     for train_idxs, test_idxs in group_shuffle_split.split(X, y, groups=groups):
         if model_class == 'nonlinear':
-            model = GeneralClassifier(model_class=Nonlinear, params={'input_dim':X.shape[-1]})
+            model = GeneralClassifier(model_class=Nonlinear, params={'input_dim':X.shape[-1], 'n_classes':3 if not binary else 2})
             model.fit(X[train_idxs], y[train_idxs], X_val=X[test_idxs], y_val=y[test_idxs])
         elif model_class == 'logistic':
-            model = GeneralClassifier(model_class=LogisticRegression)
+            model = GeneralClassifier(model_class=LogisticRegression) # , params={'max_iter':100000000})
             model.fit(X[train_idxs], y[train_idxs])
         elif model_class == 'meanrel':
-            model = GeneralClassifier(model_class=MeanRelative, params={'level':level}, normalize=False) # Don't need to fit this model.
+            model = GeneralClassifier(model_class=MeanRelative, params={'level':level, 'n_classes':3 if not binary else 2}, normalize=False) # Don't need to fit this model.
             model.fit(X[train_idxs], y[train_idxs]) # Really just to populate the n_classes attribute.
         # Evaluate the trained model on the holdout set.
         results = evaluate(model, X[train_idxs], y[train_idxs], X_val=X[test_idxs], y_val=y[test_idxs])
@@ -137,7 +137,7 @@ if __name__ == '__main__':
         for level in LEVELS:
             print(f'Performing phylogeny-based cross-validation with {level.lower()}-level holdout set.')
             # Retrieve the balanced accuracy scores for the level. 
-            scores[level] = phylogenetic_cross_validation(dataset, level=level, model_class=model_class, n_splits=args.n_splits)
+            scores[level] = phylogenetic_cross_validation(dataset, level=level, model_class=model_class, n_splits=args.n_splits, binary=args.binary)
 
         results = {'scores':scores}
         # Add other relevant information to the results dictionary. Make sure to not include tax_data if it's there.
@@ -147,7 +147,7 @@ if __name__ == '__main__':
 
         task = 'binary' if args.binary else 'ternary'
 
-        result_path = os.path.join(RESULTS_PATH, f'phlo_cv_{model_class}_{feature_type}_{task}.json')
+        result_path = os.path.join(RESULTS_PATH, f'phylo_cv_{model_class}_{feature_type}_{task}.json')
         print(f'\nWriting results to {result_path}.')
         save_results_dict(results, result_path)
 
