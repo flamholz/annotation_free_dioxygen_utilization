@@ -203,8 +203,8 @@ class GeneralClassifier():
 
     def fit(self, X:np.ndarray, y:np.ndarray, X_val:np.ndarray=None, y_val:np.ndarray=None):
         '''Fit the underlying model to training data.'''
-        X = X if (not self.scaler) else self.scaler.fit_transform(X) # Standardize the input, if specified.
 
+        X = X if (not self.scaler) else self.scaler.fit_transform(X) # Standardize the input, if specified.
         self.n_classes = len(np.unique(y)) # Get the number of classes. 
 
         if (X_val is not None) and (y_val is not None):
@@ -217,7 +217,6 @@ class GeneralClassifier():
     def predict(self, X:np.ndarray) -> np.ndarray:
         X = X if (not self.scaler) else self.scaler.transform(X) # Standardize the input, if specified.
         return self.classifier.predict(X)
-        
 
     def balanced_accuracy(self, X:np.ndarray, y:np.ndarray) -> float:
         X = X if (not self.scaler) else self.scaler.transform(X) # Standardize the input, if specified.
@@ -234,8 +233,9 @@ class GeneralClassifier():
         For a ternary classification problem, use a one-versus-all approach to compute the individual scores for each class, and
         then taking the average (which can be weighted).'''
         X = X if (not self.scaler) else self.scaler.transform(X) # Standardize the input, if specified.
-        y_pred = self.classifier.predict(X)
-        return f1_score(y, y_pred, average='weighted' if self.n_classes > 2 else 'binary')
+        y_pred = self.classifier.predict(X).ravel()
+        # return f1_score(y, y_pred, average='weighted' if self.n_classes > 2 else 'binary')
+        return f1_score(y, y_pred, average='weighted')
 
     def save(self, path:str) -> NoReturn:
         '''Save the GeneralClassifier instance to a file.

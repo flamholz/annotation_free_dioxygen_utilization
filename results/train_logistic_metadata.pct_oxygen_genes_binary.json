@@ -1,0 +1,1 @@
+{"training_acc": 0.8862393173569045, "validation_acc": 0.8889927587844255, "classes": ["intolerant", "tolerant"], "confusion_matrix": [213, 30, 41, 375], "f1_score": 0.8927315247672931, "n_iter": 10, "converged": true, "C": 100, "penalty": "l2", "max_iter": 100000, "feature_type": "metadata.pct_oxygen_genes", "model_class": "logistic", "binary": true}

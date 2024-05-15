@@ -1,0 +1,1 @@
+{"training_acc": 0.7386669011684306, "validation_acc": 0.740295584045584, "classes": ["intolerant", "tolerant"], "confusion_matrix": [153, 90, 62, 354], "f1_score": 0.7660517911912659, "n_iter": 836, "converged": true, "C": 100, "penalty": "l2", "max_iter": 100000, "feature_type": "nt_2mer", "model_class": "logistic", "binary": true}

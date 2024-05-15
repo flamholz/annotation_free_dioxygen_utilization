@@ -34,7 +34,8 @@ PRETTY_NAMES['nt_3mer'] = 'Nucleotide trimers'
 PRETTY_NAMES['cds_1mer'] = 'CDS amino acid counts'
 PRETTY_NAMES['cds_2mer'] = 'CDS amino acid dimers'
 PRETTY_NAMES['cds_3mer'] = 'CDS amino acid trimers'
-PRETTY_NAMES.update({'embedding.genome':'Genome embedding', 'metadata':'Metadata'})
+PRETTY_NAMES.update({'embedding.genome':'Genome embedding'})
+PRETTY_NAMES.update({'metadata':'Metadata', 'metadata.oxygen_genes':'Oxygen gene set', 'metadata.pct_oxygen_genes':'Percentage oxygen genes', 'metadata.number_of_genes':'Number of genes'})
 PRETTY_NAMES.update({f'nt_{i}mer':f'Nucleotide {i}-mer' for i in range(4, 6)})
 PRETTY_NAMES.update({f'cds_{i}mer':f'CDS {i}-mer' for i in range(4, 6)})
 

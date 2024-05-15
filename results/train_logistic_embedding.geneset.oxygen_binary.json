@@ -1,0 +1,1 @@
+{"training_acc": 1.0, "validation_acc": 0.9065571904554955, "classes": ["intolerant", "tolerant"], "confusion_matrix": [205, 29, 26, 387], "f1_score": 0.9148718672892029, "n_iter": 1178, "converged": true, "C": 100, "penalty": "l2", "max_iter": 100000, "feature_type": "embedding.geneset.oxygen", "model_class": "logistic", "binary": true}
