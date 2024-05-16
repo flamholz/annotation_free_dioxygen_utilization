@@ -1,7 +1,7 @@
 # Shell script for running multiple contig-based predictions on HPC.
 
 import subprocess 
-from aerobot.contig import KMER_FEATURE_TYPES
+from aerobot.contigs import KMER_FEATURE_TYPES
 from aerobot.io import SCRIPTS_PATH
 
 SCRIPT = os.path.join(SCRIPTS_PATH, 'predict-contigs.py')
