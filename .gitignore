@@ -2,8 +2,4 @@
 __pycache__/
 .ipynb_checkpoints/
 data
-data/madin
-data/jablonska
-data/black_sea
-data/earth_microbiome
-data/contigs
+data.zip
