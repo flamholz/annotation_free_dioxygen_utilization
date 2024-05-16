@@ -162,8 +162,8 @@ def contigs_extract_features(contigs_dfs:List[pd.DataFrame], feature_type:str='a
 
     print(f'contigs_extract_features: Writing results to {hdf_path}')
     hdf.close()
-    # Remove all temporary files. 
-    subprocess.run(f'rm {tmp}*', shell=True, check=True)
+    # Remove all temporary files. Causing errors for some reason.git
+    # subprocess.run(f'rm {tmp}*', shell=True, check=True)
 
 
 def contigs_features_from_hdf(hdf:pd.HDFStore, feature_type:str=None, contig_size:int=None, normalize:bool=True) -> np.ndarray:
