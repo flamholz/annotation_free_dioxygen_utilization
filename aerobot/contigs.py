@@ -134,6 +134,7 @@ def contigs_extract_features(contigs_dfs:List[pd.DataFrame], feature_type:str='a
     :param feature_type: The feature type to extract from each contig.
     :param genome_id
     '''
+    tmp = f'tmp_{genome_id}_{feature_type}' # Need to name temporary file uniquely to avoid conflict with other processes.
     hdf_path = os.path.join(CONTIG_PATH, f'{genome_id}_{feature_type}.h5')
     hdf = pd.HDFStore(hdf_path, 'a')
     k = int(re.search('\d', feature_type).group(0)) # Get the size of the k-mers for the feature type. 
@@ -143,11 +144,11 @@ def contigs_extract_features(contigs_dfs:List[pd.DataFrame], feature_type:str='a
         print(f'contigs_get_features: Generating {feature_type} data for contigs of size {contig_size}.')
         
         if 'aa' in feature_type: # Only run Prodigal if we need amino acids. 
-            save_fasta(contigs_df, 'tmp.fna') # Assuming input contigs are nucleotides. 
+            save_fasta(contigs_df, f'{tmp}.fna') # Assuming input contigs are nucleotides. 
             # subprocess.run('prodigal -a tmp.faa -o tmp.gbk -i tmp.fna -q', shell=True, check=True)
-            subprocess.run('~/prodigal -a tmp.faa -o tmp.gbk -i tmp.fna -q', shell=True, check=True)
+            subprocess.run(f'~/prodigal -a {tmp}.faa -o {tmp}.gbk -i {tmp}.fna -q', shell=True, check=True)
             # Prodigal output file will probably have multiple entries per nucleotide contig. We will want to group these. 
-            contigs_df_grouped_by_contig = contigs_group_prodigal_output('tmp.faa', genome_id=genome_id)
+            contigs_df_grouped_by_contig = contigs_group_prodigal_output(f'{tmp}.faa', genome_id=genome_id)
         elif 'nt' in feature_type:
             contigs_df_grouped_by_contig = list(contigs_df.groupby('header')) # Header column contains the contig ID.
 
@@ -162,7 +163,7 @@ def contigs_extract_features(contigs_dfs:List[pd.DataFrame], feature_type:str='a
     print(f'contigs_extract_features: Writing results to {hdf_path}')
     hdf.close()
     # Remove all temporary files. 
-    subprocess.run('rm tmp*', shell=True, check=True)
+    subprocess.run(f'rm {tmp}*', shell=True, check=True)
 
 
 def contigs_features_from_hdf(hdf:pd.HDFStore, feature_type:str=None, contig_size:int=None, normalize:bool=True) -> np.ndarray:
