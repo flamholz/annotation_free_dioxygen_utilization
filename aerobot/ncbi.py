@@ -42,7 +42,7 @@ def ncbi_get_nt_ids(genome_id:str) -> List[str]:
     :return: A list of integer identifiers for the nucleotide sequences attached to the genome ID in the NCBI
         nucleotide database. 
     '''
-    genome_id = genome_id_to_refseq(genome_id)
+    genome_id = ncbi_genome_id_to_refseq(genome_id)
 
     handle = Entrez.esearch(db='nucleotide', term=genome_id)
     results = Entrez.read(handle)
@@ -74,7 +74,7 @@ def ncbi_download_genomes(genome_ids:List[str], complete_genomes_only:bool=False
             continue
 
         # Retrieve the nucleotide accession for the genomic sequence
-        nt_ids = get_nt_ids(genome_id) # Can be multiple IDs if the genome is in the form of contigs.
+        nt_ids = ncbi_get_nt_ids(genome_id) # Can be multiple IDs if the genome is in the form of contigs.
 
         if nt_ids is None:
             print(f'ncbi_download_genomes: Skipping {genome_id}, as no search hits were found in the NCBI nucleotide database.')
