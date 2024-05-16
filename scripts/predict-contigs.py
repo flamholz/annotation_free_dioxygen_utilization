@@ -27,7 +27,7 @@ if __name__ == '__main__':
     task = 'binary' if args.binary else 'ternary'
     # Load the model to use for predicting the data. 
     model_path = os.path.join(MODELS_PATH, f'{args.model_class}_{args.feature_type}_{task}.joblib')
-    assert os.path.exists(model_path), f'{args.model_class.capitalize()} model for {task} classification of {args.feature_type} features is not present in {MODEL_PATH}'
+    assert os.path.exists(model_path), f'{args.model_class.capitalize()} model for {task} classification of {args.feature_type} features is not present in {MODELS_PATH}'
     model = GeneralClassifier.load(model_path)
     
     for genome_id in genome_ids:
