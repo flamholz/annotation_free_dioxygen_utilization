@@ -3,6 +3,7 @@
 import subprocess 
 from aerobot.contigs import KMER_FEATURE_TYPES
 from aerobot.io import SCRIPTS_PATH
+import os
 
 SCRIPT = os.path.join(SCRIPTS_PATH, 'predict-contigs.py')
 # Select a few different genome IDs... perhaps five from each category. 
