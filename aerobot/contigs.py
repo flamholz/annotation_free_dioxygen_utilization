@@ -20,7 +20,7 @@ SCRIPTS_PATH = os.path.join('..', 'scripts')
 
 KMER_FEATURE_TYPES = ['aa_1mer', 'aa_2mer', 'aa_3mer']
 KMER_FEATURE_TYPES += ['nt_1mer', 'nt_2mer', 'nt_3mer', 'nt_4mer', 'nt_5mer']
-KMER_FEATURE_TYPES += ['cds_1mer', 'cds_2mer', 'cds_3mer', 'cds_4mer', 'cds_5mer']
+# KMER_FEATURE_TYPES += ['cds_1mer', 'cds_2mer', 'cds_3mer', 'cds_4mer', 'cds_5mer']
 
 
 def contigs_get_genome_size(genome_id:str) -> int:
@@ -144,7 +144,8 @@ def contigs_extract_features(contigs_dfs:List[pd.DataFrame], feature_type:str='a
         
         if 'aa' in feature_type: # Only run Prodigal if we need amino acids. 
             save_fasta(contigs_df, 'tmp.fna') # Assuming input contigs are nucleotides. 
-            subprocess.run('prodigal -a tmp.faa -o tmp.gbk -i tmp.fna -q', shell=True, check=True)
+            # subprocess.run('prodigal -a tmp.faa -o tmp.gbk -i tmp.fna -q', shell=True, check=True)
+            subprocess.run('~/prodigal -a tmp.faa -o tmp.gbk -i tmp.fna -q', shell=True, check=True)
             # Prodigal output file will probably have multiple entries per nucleotide contig. We will want to group these. 
             contigs_df_grouped_by_contig = contigs_group_prodigal_output('tmp.faa', genome_id=genome_id)
         elif 'nt' in feature_type:
