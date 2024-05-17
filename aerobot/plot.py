@@ -128,42 +128,30 @@ def plot_model_accuracy_barplot(results:Dict[str, Dict], ax:plt.Axes=None, color
 
 
 
-def plot_confusion_matrices(results:Dict[str, Dict], path:str=None) -> NoReturn:
+def plot_confusion_matrix(results:Dict[str, Dict], feature_type:str=None, ax:plt.Axes=None) -> NoReturn:
+    '''Plots a confusion matrix for a particular model evaluated on data of a particular feature type.'''
 
-    feature_types = list(results.keys())
-    binary = results[feature_types[0]]['binary'] # Assume all have the same value, but might want to add a check.
-    classes = results[feature_types[0]]['classes'] # This should also be the same for each feature type. 
+    plot_configure_mpl() # I guess I have to call this here too...
+    
+    binary = results['binary'] # Assume all have the same value, but might want to add a check.
+    classes = results['classes'] # This should also be the same for each feature type. 
 
-    # Extract the confusion matrices, which are flattened lists and need to be reshaped. 
+    # Extract the confusion matrix, which is a flattened list, and need to be reshaped. 
     dim = 2 if binary else 3 # Dimension of the confusion matrix.
-    confusion_matrices = [results[feature_type]['confusion_matrix'] for feature_type in feature_types]
-    confusion_matrices = [np.array(confusion_matrix).reshape(dim, dim) for confusion_matrix in confusion_matrices]
+    confusion_matrix = np.array(results['confusion_matrix']).reshape(dim, dim)
     
-    # Initialize a figure with one axis for each feature type. These will all share a y axis.
-    fig, axes = plt.subplots(ncols=len(feature_types), figsize=(10, 3), sharey=True, sharex=False)
-    axes = axes.flatten()
-    plt.ylabel('true label') # Only need to share once if they share a y-axis.
-
-    for feature_type, confusion_matrix, ax in zip(feature_types, confusion_matrices, axes):
-        confusion_matrix = pd.DataFrame(confusion_matrix, columns=classes, index=classes)
-        confusion_matrix = confusion_matrix.apply(lambda x: x/x.sum(), axis=1) # Normalize the matrix.
-        ax.set_xlabel('predicted label')
-        ax.set_title(PRETTY_NAMES[feature_type], loc='center')
-        sns.heatmap(confusion_matrix, ax=ax, cmap='Blues', annot=True, fmt='.1%', cbar=False)
-        # Rotate the tick labels on the x-axis of each subplot.
-        ax.set_xticks(np.arange(len(classes)) + 0.5, classes, rotation=45)
-    
-    axes[0].set_yticks(np.arange(len(classes)) + 0.5, classes, rotation=0)
-
-    plt.tight_layout()
-    if path is not None:
-        plt.savefig(path, dpi=500, format='PNG', bbox_inches='tight')
-        plt.close()  # Prevent figure from being displayed in notebook.
-    else:
-        plt.show()
+    confusion_matrix = pd.DataFrame(confusion_matrix, columns=classes, index=classes)
+    confusion_matrix = confusion_matrix.apply(lambda x: x/x.sum(), axis=1) # Normalize the matrix.
+    ax.set_xlabel('predicted label')
+    ax.set_ylabel('true label')
+    ax.set_title(PRETTY_NAMES[feature_type], loc='center')
+    sns.heatmap(confusion_matrix, ax=ax, cmap='Blues', annot=True, fmt='.1%', cbar=False)
+    # Rotate the tick labels on the x-axis of each subplot.
+    ax.set_xticks(np.arange(len(classes)) + 0.5, classes, rotation=45)
+    ax.set_yticks(np.arange(len(classes)) + 0.5, classes, rotation=0)
 
 
-def plot_phylo_bias(results:Dict[str, Dict], show_points:bool=False, path:str=None) -> NoReturn:
+def plot_phylo_cv(results:Dict[str, Dict], show_points:bool=False, path:str=None) -> NoReturn:
     '''Plots the results of a single run of phlogenetic bias analysis''' 
 
     feature_type = results['feature_type'] # Extract the feature type from the results dictionary. 
