@@ -139,14 +139,17 @@ def contigs_extract_features(contigs_dfs:List[pd.DataFrame], feature_type:str='a
     hdf = pd.HDFStore(hdf_path, 'a')
     k = int(re.search('\d', feature_type).group(0)) # Get the size of the k-mers for the feature type. 
 
-    for contigs_df in contigs_dfs:
+    empty_contigs_dfs = [df for df in contigs_dfs if len(df) == 0]
+    print(f'contigs_extract_features: No contigs present in {len(empty_contigs_dfs)} of {len(contigs_dfs)} contig DataFrames.')
+    for contigs_df in [df for df in contigs_dfs if len(df) > 0]:
+        # For some reason, was getting an index out of bound error with iloc[0], but not sure why. 
         contig_size = len(contigs_df.iloc[0].seq) # Get the length of the contigs stored in the DataFrame. 
-        print(f'contigs_get_features: Generating {feature_type} data for contigs of size {contig_size}.')
+        print(f'contigs_extract_features: Generating {feature_type} data for contigs of size {contig_size}.')
         
         if 'aa' in feature_type: # Only run Prodigal if we need amino acids. 
             save_fasta(contigs_df, f'{tmp}.fna') # Assuming input contigs are nucleotides. 
-            # subprocess.run('prodigal -a tmp.faa -o tmp.gbk -i tmp.fna -q', shell=True, check=True)
-            subprocess.run(f'~/prodigal -a {tmp}.faa -o {tmp}.gbk -i {tmp}.fna -q', shell=True, check=True)
+            subprocess.run(f'prodigal -a {tmp}.faa -o {tmp}.gbk -i {tmp}.fna -q', shell=True, check=True)
+            # subprocess.run(f'~/prodigal -a {tmp}.faa -o {tmp}.gbk -i {tmp}.fna -q', shell=True, check=True)
             # Prodigal output file will probably have multiple entries per nucleotide contig. We will want to group these. 
             contigs_df_grouped_by_contig = contigs_group_prodigal_output(f'{tmp}.faa', genome_id=genome_id)
         elif 'nt' in feature_type:
@@ -181,7 +184,7 @@ def contigs_features_from_hdf(hdf:pd.HDFStore, feature_type:str=None, contig_siz
     # Drop any empty rows. These are the cases in which the contig does not have any k-mer overlap with the training set. 
     empty_rows = feature_df.values.sum(axis=1) == 0
     if np.sum(empty_rows) > 0:
-        print(f'contigs_predict: Detected {np.sum(empty_rows)} empty rows in the feature data. Removed rows from feature_df.')
+        print(f'contigs_features_from_hdf: Detected {np.sum(empty_rows)} empty rows in the feature data. Removed rows from feature_df.')
         feature_df = feature_df[~empty_rows]
 
     features = feature_df.values # Extract the feature values from the DataFrame

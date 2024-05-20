@@ -33,8 +33,9 @@ if __name__ == '__main__':
     for genome_id in genome_ids:
 
         genome_size = contigs_get_genome_size(genome_id)
-        contig_sizes = np.arange(1000, genome_size, 5000) # Automatically generate a list of reasonable contig sizes. 
-        #contig_sizes = contig_sizes[contig_sizes < genome_size] # Make sure none of the sizes exceed the size of the genome. 
+
+        contig_sizes = list(range(1000, 100000, 5000))
+        contig_sizes += list(range(100000, genome_size - 10000, 50000)) # Automatically generate a list of reasonable contig sizes. 
         contig_sizes = list(contig_sizes) + [None] # None will result in a prediction for the entire genome being generated. 
         
         contigs_dfs = [contigs_split_genome_v2(genome_id, contig_size=contig_size) for contig_size in contig_sizes]
@@ -42,7 +43,7 @@ if __name__ == '__main__':
 
         predictions_df = contigs_predict(genome_id, model, feature_type=args.feature_type)
         
-        # Write the predictions to a CSV file.
+        # Write the predictions to a CSV file. Overwrite any existing file. 
         predictions_df = pd.DataFrame(predictions_df).set_index('contig_size')
         predictions_df.to_csv(os.path.join(RESULTS_PATH, f'predict_contigs_{genome_id}_{args.feature_type}.csv'))
     

@@ -57,7 +57,7 @@ class Nonlinear(torch.nn.Module):
         self.weight_decay = weight_decay
         self.classes_ = None # Will be populated later, for consistency with LogisticRegression model.
         self.n_classes = n_classes
-        self.encoder = sklearn.preprocessing.OneHotEncoder(handle_unknown='error', sparse_output=False)
+        self.encoder = sklearn.preprocessing.OneHotEncoder(handle_unknown='error')
         self.lr = lr
         self.alpha = alpha
         self.early_stopping = early_stopping
