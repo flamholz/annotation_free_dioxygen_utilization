@@ -33,8 +33,8 @@ if __name__ == '__main__':
     for genome_id in genome_ids:
 
         genome_size = contigs_get_genome_size(genome_id)
-        contig_sizes = np.arange(1000, 100000, 2000) # Automatically generate a list of reasonable contig sizes. 
-        contig_sizes = contig_sizes[contig_sizes < genome_size] # Make sure none of the sizes exceed the size of the genome. 
+        contig_sizes = np.arange(1000, genome_size, 5000) # Automatically generate a list of reasonable contig sizes. 
+        #contig_sizes = contig_sizes[contig_sizes < genome_size] # Make sure none of the sizes exceed the size of the genome. 
         contig_sizes = list(contig_sizes) + [None] # None will result in a prediction for the entire genome being generated. 
         
         contigs_dfs = [contigs_split_genome_v2(genome_id, contig_size=contig_size) for contig_size in contig_sizes]
