@@ -17,7 +17,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Load the training, testing, and validation datasets. 
-    datasets, encoder = rna16s_load_datasets()
+    datasets, encoder = rna16s_load_datasets(n=10)
 
     # Instantiate a classifier. 
     model = Rna16SClassifier()

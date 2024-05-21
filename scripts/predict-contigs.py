@@ -35,9 +35,10 @@ if __name__ == '__main__':
         genome_size = contigs_get_genome_size(genome_id)
 
         contig_sizes = list(range(1000, 100000, 5000))
-        contig_sizes += list(range(100000, genome_size - 10000, 50000)) # Automatically generate a list of reasonable contig sizes. 
+        contig_sizes += list(range(100000, genome_size - 10000, 50000)) # Generate a list of reasonable contig sizes. 
         contig_sizes = list(contig_sizes) + [None] # None will result in a prediction for the entire genome being generated. 
         
+        contig_sizes=[10000]
         contigs_dfs = [contigs_split_genome_v2(genome_id, contig_size=contig_size) for contig_size in contig_sizes]
         contigs_extract_features(contigs_dfs, genome_id=genome_id, feature_type=args.feature_type)
 

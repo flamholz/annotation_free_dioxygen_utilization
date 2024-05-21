@@ -79,11 +79,11 @@ def contigs_split_genome_v2(genome_id:str, contig_size:int=1000) -> pd.DataFrame
     if contig_size is not None:
         # Select a number of sampling events such that the probability that all nucleotides are "covered" is 0.95.
         # NOTE: This does not account for the fact that the last contig_size nucleotides are less likely to be sampled. 
-        n_contigs = int(np.log(0.05) / np.log(1 - contig_size / len(genome)))
-        print(f'generate_contigs: Sampling {n_contigs} contigs of length {contig_size} from a genome of size {len(genome)}.')
+        n_contigs = max(int(np.log(0.05) / np.log(1 - contig_size / len(genome))), 5) # Sample at least 5 contigs, even if n_contigs is fewer than 5. 
+        print(f'contigs_split_genome_v2: Sampling {n_contigs} contigs of length {contig_size} from a genome of size {len(genome)}.')
         start_idxs = np.arange(0, len(genome) - contig_size)
         contigs = []
-        for _ in range(n_contigs):
+        for _ in range(n_contigs): 
             start_idx = np.random.choice(start_idxs)
             contigs.append(genome[start_idx:start_idx + contig_size])
 
@@ -140,8 +140,9 @@ def contigs_extract_features(contigs_dfs:List[pd.DataFrame], feature_type:str='a
     k = int(re.search('\d', feature_type).group(0)) # Get the size of the k-mers for the feature type. 
 
     empty_contigs_dfs = [df for df in contigs_dfs if len(df) == 0]
-    print(f'contigs_extract_features: No contigs present in {len(empty_contigs_dfs)} of {len(contigs_dfs)} contig DataFrames.')
-    for contigs_df in [df for df in contigs_dfs if len(df) > 0]:
+    # print(f'contigs_extract_features: No contigs present in {len(empty_contigs_dfs)} of {len(contigs_dfs)} contig DataFrames.')
+    assert len(empty_contigs_dfs) == 0, 'contigs_extract_features: None of the contig DataFrames should be empty!'
+    for contigs_df in contigs_dfs:
         # For some reason, was getting an index out of bound error with iloc[0], but not sure why. 
         contig_size = len(contigs_df.iloc[0].seq) # Get the length of the contigs stored in the DataFrame. 
         print(f'contigs_extract_features: Generating {feature_type} data for contigs of size {contig_size}.')

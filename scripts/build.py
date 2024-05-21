@@ -18,7 +18,7 @@ warnings.filterwarnings('ignore', category=tables.NaturalNameWarning)
 # TODO: Possibly add the code for reading and writing maps to the io.py file?
 
 
-def load_data_madin(path:str=os.path.join(DATA_PATH, '/madin/madin_data.h5'), feature_type:str='ko') -> Dict[str, pd.DataFrame]:
+def load_data_madin(path:str=os.path.join(DATA_PATH, 'madin/madin.h5'), feature_type:str=None) -> Dict[str, pd.DataFrame]:
     '''Load the training data from Madin et. al. This data is stored in an H5 file, as it is too large to store in 
     separate CSVs. 
 
@@ -28,6 +28,7 @@ def load_data_madin(path:str=os.path.join(DATA_PATH, '/madin/madin_data.h5'), fe
     assert feature_type in FEATURE_TYPES, f'load_training_data: feature_type must be one of {FEATURE_TYPES}'
     
     output = dict()
+    print(path)
     output['labels'] = pd.read_hdf(path, key='labels')
     if feature_type == 'chemical':
         kwargs = dict()
@@ -136,7 +137,7 @@ def fill_missing_taxonomy(labels:pd.DataFrame) -> pd.DataFrame:
     return labels
 
 
-def load_jablonska_data(path:str=os.path.join(DATA_PATH, 'jablonska/'), feature_type:str='KO') -> Dict[str, pd.DataFrame]:
+def load_data_jablonska(path:str=os.path.join(DATA_PATH, 'jablonska/'), feature_type:str=None) -> Dict[str, pd.DataFrame]:
     '''Load the data from Jablonska et. al.
 
     :param path: The path to the directory containing the validation data files.
@@ -155,7 +156,7 @@ def load_jablonska_data(path:str=os.path.join(DATA_PATH, 'jablonska/'), feature_
             kwargs.update({f + '_df':df})
         features = chemical_get_features(**kwargs)
     else:
-        features = pd.read_csv(os.path.join(path, filename_map[feature_type]), index_col=0)
+        features = pd.read_csv(os.path.join(path, f'jablonska_{feature_type}.csv'), index_col=0)
         # If the feature type is one of the following, fill 0 values with NaNs.
         if feature_type in ['KO', 'embedding.genome', 'embedding.geneset.oxygen']:
             features.fillna(0, inplace=True)
@@ -255,17 +256,17 @@ def training_validation_split(all_datasets:Dict[str, pd.DataFrame], random_seed:
 
 if __name__ == '__main__':
 
-    download_data() # Download training data from Google Cloud if it has not been already.
+    # download_data() # Download training data from Google Cloud if it has not been already.
 
     all_datasets = dict()
     for feature_type in FEATURE_TYPES:
         print(f'Building datasets for {feature_type}...')
         # Load in the datasets.
-        training_dataset = load_training_data(feature_type=feature_type)
-        validation_dataset = load_validation_data(feature_type=feature_type)
+        jablonska_dataset = load_data_jablonska(feature_type=feature_type)
+        madin_dataset = load_data_madin(feature_type=feature_type)
 
         print(f'\tMerging datasets...')
-        dataset = merge_datasets(training_dataset, validation_dataset)
+        dataset = merge_datasets(jablonska_dataset, madin_dataset)
         features, labels = dataset['features'], dataset['labels']
 
         # Fill in gaps in the taxonomy data using the GTDB taxonomy strings.
