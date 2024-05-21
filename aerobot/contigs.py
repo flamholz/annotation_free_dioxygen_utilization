@@ -149,8 +149,8 @@ def contigs_extract_features(contigs_dfs:List[pd.DataFrame], feature_type:str='a
         
         if 'aa' in feature_type: # Only run Prodigal if we need amino acids. 
             save_fasta(contigs_df, f'{tmp}.fna') # Assuming input contigs are nucleotides. 
-            subprocess.run(f'prodigal -a {tmp}.faa -o {tmp}.gbk -i {tmp}.fna -q', shell=True, check=True)
-            # subprocess.run(f'~/prodigal -a {tmp}.faa -o {tmp}.gbk -i {tmp}.fna -q', shell=True, check=True)
+            # subprocess.run(f'prodigal -a {tmp}.faa -o {tmp}.gbk -i {tmp}.fna -q', shell=True, check=True)
+            subprocess.run(f'~/prodigal -a {tmp}.faa -o {tmp}.gbk -i {tmp}.fna -q', shell=True, check=True)
             # Prodigal output file will probably have multiple entries per nucleotide contig. We will want to group these. 
             contigs_df_grouped_by_contig = contigs_group_prodigal_output(f'{tmp}.faa', genome_id=genome_id)
         elif 'nt' in feature_type:
