@@ -57,7 +57,7 @@ class Nonlinear(torch.nn.Module):
         self.weight_decay = weight_decay
         self.classes_ = None # Will be populated later, for consistency with LogisticRegression model.
         self.n_classes = n_classes
-        self.encoder = sklearn.preprocessing.OneHotEncoder(handle_unknown='error')
+        self.encoder = sklearn.preprocessing.OneHotEncoder(handle_unknown='error', sparse_output=False)
         self.lr = lr
         self.alpha = alpha
         self.early_stopping = early_stopping
@@ -75,7 +75,7 @@ class Nonlinear(torch.nn.Module):
 
     def _get_batches(self, X:np.ndarray, y:np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         '''Create batches of size batch_size from training data and labels.'''
-        # Don't bother with balanced batches. Doesn't help much with accuracy anyway. 
+        # Don't bother with balanced batches. Doesn't help much with accuracy anyway.
         n_batches = len(X) // self.batch_size + 1
         X_batches = np.array_split(X, n_batches, axis=0)
         y_batches = np.array_split(y, n_batches, axis=0)

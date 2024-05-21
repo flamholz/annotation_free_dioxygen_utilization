@@ -195,6 +195,9 @@ def dataset_clean_features(df:pd.DataFrame, feature_type:str='aa_3mer'):
             missing += 1
             df[f] = np.zeros(len(df))
 
-    print('dataset_clean_features:', missing, feature_type, 'features are missing from the input data. Filled missing data with 0.')
+    if missing > 0:
+        pass
+        # print('dataset_clean_features:', missing, feature_type, 'features are missing from the input data. Filled missing data with 0.')
+    
     df = df[feature_order] # Ensure the feature ordering is consistent. 
     return df

@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 from aerobot.io import FEATURE_TYPES, FEATURE_SUBTYPES, RESULTS_PATH, load_results_dict
 import matplotlib.ticker as ticker
-import seaborn as sns
 from typing import Dict, NoReturn, List
 import os
 
