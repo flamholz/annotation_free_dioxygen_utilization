@@ -34,6 +34,20 @@ def ncbi_genome_id_to_refseq(genome_id:str) -> str:
     return genome_id 
 
 
+def ncbi_get_16s_seqs(gene_ids:List[str]) -> List[str]:
+    records = []
+    for accession in accession_list:
+        try:
+            handle = Entrez.efetch(db='nucleotide', id=accession, rettype='gb', retmode='text')
+            record = SeqIO.read(handle, 'genbank')
+            handle.close()
+            records.append(record)
+        except Exception as e:
+            print(f"Error fetching accession {accession}: {e}")
+    return records
+
+
+
 def ncbi_get_nt_ids(genome_id:str) -> List[str]:
     '''Get the search ID for the nucleotide database using a RefSeq genome ID.
 
@@ -54,7 +68,7 @@ def ncbi_get_nt_ids(genome_id:str) -> List[str]:
     return results['IdList']
 
 
-def ncbi_download_genomes(genome_ids:List[str], complete_genomes_only:bool=False) -> List[str]:
+def ncbi_download_genomes(genome_ids:List[str]) -> List[str]:
     '''Download the genomes with the specified IDs from the NCBI database.
 
     :param genome_ids: A list of genome IDs to download.
@@ -69,7 +83,7 @@ def ncbi_download_genomes(genome_ids:List[str], complete_genomes_only:bool=False
         filename =  f'{genome_id}.fasta'
 
         if filename in os.listdir(GENOMES_PATH):
-            print(f'ncbi_download_genomes: Skipping {genome_id}, as it is already present in the output directory.')
+            # print(f'ncbi_download_genomes: Skipping {genome_id}, as it is already present in the output directory.')
             successfully_downloaded.append(genome_id)
             continue
 
@@ -79,9 +93,11 @@ def ncbi_download_genomes(genome_ids:List[str], complete_genomes_only:bool=False
         if nt_ids is None:
             print(f'ncbi_download_genomes: Skipping {genome_id}, as no search hits were found in the NCBI nucleotide database.')
             continue
-        if (len(nt_ids)) > 1 and (complete_genomes_only): # If more than one nucleotide ID is found, then the genome is incomplete.
-            print(f'ncbi_download_genomes: Skipping {genome_id}, as genome is incomplete.')
-            continue
+        # This doesn't work, as there is also a case where the genome is complete, but spread across multiple chromosomes. 
+        # About 10 percent of bacterial species have more than one chromosome. These genomes are called multipartite genomes. 
+        # if (len(nt_ids)) > 1 and (complete_genomes_only): # If more than one nucleotide ID is found, then the genome is incomplete.
+        #     print(f'ncbi_download_genomes: Skipping {genome_id}, as genome is incomplete.')
+        #     continue
 
         # Fetch the genomic sequence(s). 
         records = []

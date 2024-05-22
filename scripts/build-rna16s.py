@@ -1,12 +1,14 @@
 import pandas as pd
 from Bio import Entrez, SeqIO
 from Bio.Seq import Seq
+from aerobot.io import load_fasta
 from Bio import pairwise2
 from Bio.SeqIO import FastaIO
 import pandas as pd
 # In paper http://onlinelibrary.wiley.com/doi/10.1111/1462-2920.13023/abstract
 # Primers are in http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0116106#sec004
 from copy import copy, deepcopy
+import argparase
 
 # Values for pairwise local alignment: 2 points for matches, no points deducted for non-identical characters, 
 # -10 are deducted for opening a gap, and -1 points are deducted for extending a gap.
@@ -25,60 +27,38 @@ def get_amplicon(seq, forward_primer:str=None, reverse_primer:str=None):
     print(alignments)
     start = 0 if (len(alignments) == 0) else alignments[0][0].find(forward_primer) + len(forward_primer) + 1
 
-
     alignments = pairwise2.align.localms(reverse_primer, seq, MATCH_SCORE, MISMATCH_PENALTY, GAP_START_PENALTY, GAP_EXTENSION_PENALTY)
     stop = 0 if (len(alignments) == 0) else alignments[0][0].find(reverse_primer) - len(reverse_primer)
 
     return start, stop # NOTE: Not sure if start and stop are the appropriate names here. 
 
 
+def fix_primers(forward_primer:str, reverse_primer:str):
+    '''Convert forward and reverse primers into a format which works with the rest of the code. Specifically, convert all 
+    upper-case nucleotides to lower-case, and take the reverse complement of the recerse primer.'''
+    forward_primer = forward_primer.lower()
+    # Get the reverse complement of the reverse primer. 
+    # reverse_primer = str(Seq(reverse_primer).complement()).lower()[::-1]
+    reverse_primer = str(Seq(reverse_primer).reverse_complement())
+    return forward_primer, reverse_primer
+
+
 if __name__ == '__main__':
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--email', help='Email address for accessing NCBI utilities through Entrez.')
 
-    Entrez.email = "goldford.joshua@gmail.com"  # Always provide your email address when using NCBI E-utilities
+    Entrez.email = 'prichter@caltech.edu'  # Always provide your email address when using NCBI E-utilities
 
-    seqFile_fullLength = "data_16s/16S_sequences.fasta"
-    seqFile_V34 = "data_16s/16S_sequences_V34.fasta"
-    trainingFile = "data_16s/seqs.train.csv"
-    testFile = "data_16s/seqs.test.csv"
-    validationFile = "data_16s/seqs.valid.csv"
+    metadata_df = pd.read_csv('Mark_Westoby_Organism_Metadata_Export_02152018.txt', sep='\t')
+
+    # Get the 16S sequence accessions from the metadata file.  
+    ncbi_gene_ids = metadata_df.GENBANK_16S_ID[~metadata_df.GENBANK_16S_ID.str.match('(null)')]
+    ncbi_gene_ids = ncbi_gene_ids.unique().tolist()
+
+    ncbi_get_seqs
 
 
-def convert_primers(forward,reverse):
-    forward = forward.lower()
-    reverse = str(Seq(reverse).complement()).lower()
-    reverse = reverse[::-1].lower() 
-    return forward,reverse
-
-def get_sequences_by_accession_list(accession_list):
-    records = []
-    for accession in accession_list:
-        try:
-            handle = Entrez.efetch(db="nucleotide", id=accession, rettype="gb", retmode="text")
-            record = SeqIO.read(handle, "genbank")
-            handle.close()
-            records.append(record)
-        except Exception as e:
-            print(f"Error fetching accession {accession}: {e}")
-    return records
-
-def fasta_to_dataframe(fasta_file):
-    ids = []
-    sequences = []
-
-    for record in SeqIO.parse(fasta_file, "fasta"):
-        ids.append(record.id)
-        sequences.append(str(record.seq))
-
-    return pd.DataFrame({"sequence": sequences}, index=ids)
-
-print('pulling accessions')
-
-metadata = pd.read_csv("../metals_metabolism/data/taxa/Mark_Westoby_Organism_Metadata_Export_02152018.txt",sep='\t')
-
-# Download 16S sequences for GTDB genomes
-ncbi_gene_ids = metadata[~metadata.GENBANK_16S_ID.apply(lambda x: x == "(null)")]
-accessions = ncbi_gene_ids.GENBANK_16S_ID.unique().tolist()
 
 print('downloading sequences')
 
@@ -91,8 +71,8 @@ with open(seqFile_fullLength, "w") as output_handle:
 
 # Extract V3-V4 region
 print("Extracting V3-V4 region")
-forward = 'TATGGTAATTGTCTCCTACGGRRSGCAGCAG'
-reverse = 'AGTCAGTCAGCCGGACTACNVGGGTWTCTAAT'
+FORWARD_PRIMER = 'TATGGTAATTGTCTCCTACGGRRSGCAGCAG'
+REVERSE_PRIMER = 'AGTCAGTCAGCCGGACTACNVGGGTWTCTAAT'
 forward,reverse = convert_primers(forward,reverse)
 
 

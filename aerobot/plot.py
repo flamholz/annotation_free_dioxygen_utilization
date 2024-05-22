@@ -44,11 +44,19 @@ ANNOTATION_BASED_FEATURE_TYPES = ['metadata.oxygen_genes', 'metadata.pct_oxygen_
 ANNOTATION_FREE_FEATURE_TYPES = [f for f in FEATURE_SUBTYPES + FEATURE_TYPES if f not in ANNOTATION_BASED_FEATURE_TYPES]
 
 
-def plot_order_feature_types(feature_types) -> List[str]:
+def plot_order_feature_types(feature_types, order_by:Dict[str, float]=dict()) -> List[str]:
     '''Order the input list of feature types such that annotation-based feature types and annotation-free
-    feature types are grouped together.'''
-    ordered_feature_types = [f for f in feature_types if f in ANNOTATION_BASED_FEATURE_TYPES]
-    ordered_feature_types += [f for f in feature_types if f in ANNOTATION_FREE_FEATURE_TYPES]
+    feature types are grouped together. This function also takes a dictionary of values as input, which can be used to 
+    order features within annotation-free and annotation-based categories (e.g. to sort by increasing order of validation accuracy).'''
+    ordered_feature_types = []
+    # First split the input features into annotation-free and annotation-based categories. 
+    for group in [ANNOTATION_BASED_FEATURE_TYPES, ANNOTATION_FREE_FEATURE_TYPES]:
+        feature_type_group = np.array([f for f in feature_types if f in group])
+        # Sort in ascending order according to the values in the order_by dictionary. 
+        sort_idxs = np.argsort([order_by.get(f, 0) for f in category])
+        # Use the indices to sort the feature type lists within each category. 
+        ordered_feature_types += feature_type_group[sort_idxs].tolist()
+
     return ordered_feature_types
 
 
@@ -83,7 +91,7 @@ def plot_training_curve(results:Dict, ax:plt.Axes=None) -> NoReturn:
 
 
 
-def plot_model_accuracy_barplot(results:Dict[str, Dict], ax:plt.Axes=None, colors=['tab:blue', 'tab:green']) -> NoReturn:
+def plot_model_accuracy_barplot(results:Dict[str, Dict], ax:plt.Axes=None, colors=['tab:blue', 'tab:green'], feature_type_order:List[str]=None) -> NoReturn:
     '''Plot a barplot which displays the training and validation accuracy for a model type trained on different 
     feature types. 
 
@@ -91,9 +99,11 @@ def plot_model_accuracy_barplot(results:Dict[str, Dict], ax:plt.Axes=None, color
     :param ax: A matplotlib Axes object on which to plot the figure. 
     :param colors: A list of two colors to distinguish between annotation-based and annotation-free feature types.
     '''
-    # Make sure annotation-based and annotation free are iterated over in clumps. 
-    feature_types = plot_order_feature_types(set(results.keys()))
-
+    # Make sure annotation-based and annotation free are iterated over in clumps.
+    # Also want to make sure the bars are plotted in order of best validation accuracy, within their clumps.  
+    # feature_types = plot_order_feature_types(set(results.keys()), order_by={f:r['validation_acc'] for f, r in results.items()})
+    feature_types = feature_type_order
+    
     def _format_barplot_axes(ax:plt.Axes):
 
         random_baseline = 0.5 if results[feature_types[0]]['binary'] else 0.33 # Expected performance for random classifier on task. 
