@@ -99,8 +99,11 @@ def contigs_prodigal_group_output(path:str, genome_id:str=None) -> List[Tuple[st
 def contigs_prodigal_run(contigs_df:pd.DataFrame, genome_id:str=None, feature_type:str=None) -> str:
     '''Run Prodigal on the nucleotide FASTA file produced from the input DataFrame.'''
     # Make a temporary directory to store the temporary files. 
-    if not os.path.exists('.tmp/'):
-        os.mkdir('tmp')
+    try:
+        if not os.path.exists('.tmp/'):
+            os.mkdir('tmp')
+    except FileExistsError:
+        pass # I don't know why the initial check is not catching this on HPC...
 
     tmp_filename = f'{genome_id}_{feature_type}' # Need to name temporary file uniquely to avoid conflict with other processes.
     
