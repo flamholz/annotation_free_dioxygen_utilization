@@ -132,6 +132,9 @@ def contigs_extract_features(contigs_dfs:List[pd.DataFrame], feature_type:str='a
         return header == genome_id
 
     for contigs_df in tqdm(contigs_dfs, desc=f'contigs_extract_features: {genome_id}'):
+        # Skip if no contigs are present. 
+        if len(contigs_df) < 1:
+            continue
 
         if 'aa' in feature_type: # Only run Prodigal if we need amino acids. 
             prodigal_output_path = contigs_prodigal_run(contigs_df, genome_id=genome_id, feature_type=feature_type)
