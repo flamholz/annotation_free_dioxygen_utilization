@@ -6,6 +6,7 @@ import time
 from aerobot.io import RESULTS_PATH, DATA_PATH
 import numpy as np 
 import os
+from tqdm import tqdm
 import argparse
 from typing import List 
 
@@ -34,16 +35,20 @@ def ncbi_genome_id_to_refseq(genome_id:str) -> str:
     return genome_id 
 
 
-def ncbi_get_16s_seqs(gene_ids:List[str]) -> List[str]:
+def ncbi_rna16s_get_seqs(rna16s_ids:List[str]) -> List[str]:
+    '''Function copied over from Josh's code for setting up the 16S classifier training and validation datasets. Downloads sequences
+    using accessions which are contained in the Mark_Westoby_Organism_Metadata_Export_02152018.tsv file.
+    '''
     records = []
-    for accession in accession_list:
+    for id_ in tqdm(rna16s_ids, desc='ncbi_rna16s_get_seqs'):
         try:
-            handle = Entrez.efetch(db='nucleotide', id=accession, rettype='gb', retmode='text')
+            handle = Entrez.efetch(db='nucleotide', id=id_, rettype='gb', retmode='text')
             record = SeqIO.read(handle, 'genbank')
             handle.close()
             records.append(record)
+            # print(f'ncbi_rna16s_get_seqs: Successfully obtained sequence for ID {id_}.')
         except Exception as e:
-            print(f"Error fetching accession {accession}: {e}")
+            print(f'ncbi_rna16s_get_seqs: Error fetching sequence for ID {id_}.')
     return records
 
 
