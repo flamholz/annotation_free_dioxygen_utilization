@@ -184,6 +184,13 @@ def contigs_features_from_hdf(hdf:pd.HDFStore, feature_type:str=None, contig_siz
 
     return features, index
 
+def contigs_get_genome_size(genome_id:str) -> int:
+    '''Get the size of the specified genome in nucleotides.'''
+
+    genome_path = os.path.join(GENOMES_PATH, f'{genome_id}.fasta')
+    genome_df = load_fasta(genome_path)
+    lengths = list(genome_df.seq.apply(len))
+    return sum(lengths)
 
 
 def contigs_predict(genome_id:str, model:GeneralClassifier, feature_type:str='aa_3mer'):

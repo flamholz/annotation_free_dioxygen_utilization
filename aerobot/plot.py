@@ -6,8 +6,10 @@ import numpy as np
 import pandas as pd
 from aerobot.io import FEATURE_TYPES, FEATURE_SUBTYPES, RESULTS_PATH, load_results_dict
 import matplotlib.ticker as ticker
+import seaborn as sns
 from typing import Dict, NoReturn, List
 import os
+import scipy.optimize
 
 
 def plot_configure_mpl(n_colors:int=6, title_font_size:int=12, label_font_size:int=8):
@@ -89,6 +91,19 @@ def plot_training_curve(results:Dict, ax:plt.Axes=None) -> NoReturn:
 
     plt.tight_layout()
 
+
+def plot_percent_above_random_axis(ax:plt.Axes, binary:bool=False):
+    '''Add a second axis to a plot indicating the percent above random performance.'''
+    random_baseline = 0.5 if binary else 0.33 # Expected performance for random classifier on task. 
+    # Add a second set of y-ticks on the right to indicate percentage performance increase over random.
+    new_ax = ax.twinx()
+    new_ax.set_ylim(0, 1)
+    yticks = np.round(100 * (np.arange(0, 1.1, 0.1) - random_baseline) / random_baseline, 0)
+    ytick_labels = [f'{v:.0f}%' for v in yticks]
+    new_ax.set_yticks(yticks, ytick_labels)
+    new_ax.set_ylabel('percent above random', rotation=270)
+    # Add horizontal line marking model performance with random classification. 
+    # ax.axhline(random_baseline, color='grey', linestyle='--', linewidth=2, zorder=-10)
 
 
 def plot_model_accuracy_barplot(results:Dict[str, Dict], ax:plt.Axes=None, colors=['tab:blue', 'tab:green'], feature_type_order:List[str]=None) -> NoReturn:
@@ -210,6 +225,31 @@ def plot_phylo_cv(results:Dict[str, Dict], show_points:bool=False, path:str=None
         plt.close()  # Prevent figure from being displayed in notebook.
     else:
         plt.show()
+
+
+def plot_fit_logistic_curve(x:np.ndarray, y:np.ndarray, min_x_val:int=1000, max_x_val:int=40000):
+    '''Fit a logistic curve to the input data.'''
+
+    def logistic(x:np.ndarray, k:float, x0:float, L:float):
+        '''Logistic curve equation for fitting the data.'''
+        return L / (1 + np.exp(-k * (x - x0)))
+
+    def residuals(params:np.ndarray, y:np.ndarray, x:np.ndarray):
+        '''Compute residuals between least squares approximation and the true y-values.'''
+        k, x0, L = params
+        err = y - logistic(x, k, x0, L)
+        return err
+
+    params = [0.0001, 0, 1] # Initial guesses for the parameters.
+    lsq = scipy.optimize.least_squares(residuals, params, args=(y, x)) 
+    k, x0, L = lsq.x # Get the fitted params from the least-squares result. 
+    # print('k =', k)
+    # print('x0 =', x0)
+    # print('L =', L)
+    # Compute x and y values for the fitted function. 
+    x = np.linspace(min_x_val, max_x_val, 100)
+    y = logistic(x, k, x0, L)
+    return x, y
 
 # def plot_phylo_bias(
 #     nonlinear_results:Dict[str, Dict[str, Dict]]=None, 
