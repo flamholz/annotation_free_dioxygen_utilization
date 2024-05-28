@@ -145,7 +145,7 @@ class Rna16SClassifier(torch.nn.Module):
 
 def rna16s_load_datasets(n:int=None) -> Tuple[Rna16SDataset, Rna16SDataset]:
     # Load the training data and split it into training and validation datasets. 
-    train_df = pd.read_csv(os.path.join(RNA16S_TRAIN_PATH))
+    train_df = pd.read_csv(RNA16S_TRAIN_PATH)
     if n is not None:
         train_df = train_df.iloc[:n]
     # train_df, val_df = sklearn.model_selection.train_test_split(train_df, test_size=0.1, random_state=42)
