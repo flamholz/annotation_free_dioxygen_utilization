@@ -22,6 +22,9 @@ import sklearn
 from tqdm import tqdm 
 
 RNA16S_PATH = os.path.join(DATA_PATH, '16s')
+RNA16S_TRAIN_PATH = os.path.join(RNA16S_PATH, 'rna16s_train.csv')
+RNA16S_TEST_PATH = os.path.join(RNA16S_PATH, 'rna16s_test.csv')
+RNA16S_VAL_PATH = os.path.join(RNA16S_PATH, 'rna16s_val.csv')
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -142,22 +145,23 @@ class Rna16SClassifier(torch.nn.Module):
 
 def rna16s_load_datasets(n:int=None) -> Tuple[Rna16SDataset, Rna16SDataset]:
     # Load the training data and split it into training and validation datasets. 
-    train_df = pd.read_csv(os.path.join(RNA16S_PATH, 'training_data.csv'))
+    train_df = pd.read_csv(os.path.join(RNA16S_TRAIN_PATH))
     if n is not None:
         train_df = train_df.iloc[:n]
-    train_df, val_df = sklearn.model_selection.train_test_split(train_df, test_size=0.1, random_state=42)
+    # train_df, val_df = sklearn.model_selection.train_test_split(train_df, test_size=0.1, random_state=42)
     # Load the testing data from a seperate file. 
     # test_df = pd.read_csv(os.path.join(RNA16S_PATH, 'testing_data.csv'))
+    val_df = pd.read_csv(RNA16S_VAL_PATH)
 
     # Map labels to integers. Fit the encoder using the training labels. 
     encoder = LabelEncoder()
-    encoder.fit(train_df['Oxygen_label'].values)
+    encoder.fit(train_df['label'].values)
 
     datasets = {}
     # for dataset_label, df in zip(['training', 'validation', 'testing'], [train_df, val_df, test_df]):
     for dataset_label, df in zip(['training', 'validation'], [train_df, val_df]):
-        seqs = [seq.upper() for seq in df['sequence']]
-        labels = encoder.transform(df['Oxygen_label'].tolist()) # Convert the labels to integers using the fitted encoder.
+        seqs = [seq.upper() for seq in df['seq']]
+        labels = encoder.transform(df['label'].tolist()) # Convert the labels to integers using the fitted encoder.
         dataset = Rna16SDataset(seqs, labels)
         datasets[dataset_label] = dataset 
 

@@ -12,12 +12,12 @@ import joblib
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batch-size', default=32, type=int, help='The size of the batches to use for model training.')
-    parser.add_argument('--n-epochs', default=200, type=int, help='The number of epochs to train the model for.')
+    parser.add_argument('--batch-size', default=16, type=int, help='The size of the batches to use for model training.')
+    parser.add_argument('--n-epochs', default=100, type=int, help='The number of epochs to train the model for.')
     args = parser.parse_args()
 
     # Load the training, testing, and validation datasets. 
-    datasets, encoder = rna16s_load_datasets(n=10)
+    datasets, encoder = rna16s_load_datasets()
 
     # Instantiate a classifier. 
     model = Rna16SClassifier()
