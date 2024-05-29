@@ -125,7 +125,7 @@ class Rna16SClassifier(torch.nn.Module):
             val_accs.append(val_acc)
             if val_acc > best_val_acc:
                 best_val_acc, best_epoch = val_acc, epoch
-                best_model_weights = self.state_dict.detach().clone()
+                best_model_weights = self.state_dict().detach().clone()
         
         print(f'Rna16SClassifier: Best validation accuracy {best_val_acc} achieved at epoch {best_epoch + 1}.')
         self.best_model_weights = best_model_weights # Store the best model weights.
@@ -138,7 +138,7 @@ class Rna16SClassifier(torch.nn.Module):
         instance = cls(genslm) # Use the default hidden_dim and n_classes. 
         instance.to(device)
         # Load the trained model weights located at the path. 
-        instance.load_state_dict(torch.load(path, map_location_device))
+        instance.load_state_dict(torch.load(path, device))
 
         return instance
 

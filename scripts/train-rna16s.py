@@ -8,7 +8,8 @@ import os
 import joblib
 
 # TODO: Update this to support binary classification (?)
-
+RNA16S_WEIGHTS_PATH = os.path.join(MODELS_PATH, 'rna16s_weights.pth')
+RNA16S_ENCODER_PATH = os.path.join(MODELS_PATH, 'rna16s_encoder.joblib')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -31,8 +32,12 @@ if __name__ == '__main__':
     results['batch_size'] = args.batch_size
     results['n_epochs'] = args.n_epochs 
 
-    # Save the encoder and the trained model weights to the MODELS_PATH directory. 
-    joblib.dump(encoder, os.path.join(MODELS_PATH, 'rna16s_encoder.joblib'))
-    torch.save(model.state_dict(), os.path.join(MODELS_PATH, 'rna16s_weights.pth'))
     # Save a summary of the training to a JSON file. )
     save_results_dict(results, os.path.join(RESULTS_PATH, 'train_rna16s_results.json'))
+
+    # Save the encoder and the trained model weights to the MODELS_PATH directory. 
+    print(f'Saving the model encoder to {RNA16S_ENCODER_PATH}')
+    joblib.dump(encoder, RNA16S_ENCODER_PATH)
+    print(f'Saving the best model weights to {RNA16S_WEIGHTS_PATH}')
+    torch.save(model.best_model_weights, RNA16S_WEIGHTS_PATH)
+
