@@ -189,10 +189,9 @@ def plot_phylo_cv(results:Dict[str, Dict], ax:plt.Axes=None) -> NoReturn:
     for feature_type, results in results.items():
 
         # Plot the error bar, as well as scatter points for each level. 
-        scores = results['scores'][level]
-        means = [np.mean(scores) for level in levels] # Extract the mean F1 scores.
-        errs = [np.std(scores) / np.sqrt(len(scores)) for level in levels] # Extract the standard errors. 
-        ax.errorbar(np.arange(1, len(levels) + 1), means, yerr=errs, c=colors[i], linestyle=linestyles[i], capsize=3)
+        means = [np.mean(results['scores'][level]) for level in levels] # Extract the mean F1 scores.
+        errs = [np.std(results['scores'][level]) / np.sqrt(len(results['scores'][level])) for level in levels] # Extract the standard errors. 
+        ax.errorbar(np.arange(1, len(levels) + 1), means, yerr=errs, capsize=3)
         legend.append(feature_type)
 
     ax.set_ylabel('balanced accuracy')

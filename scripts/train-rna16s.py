@@ -31,7 +31,8 @@ if __name__ == '__main__':
     results['batch_size'] = args.batch_size
     results['n_epochs'] = args.n_epochs 
 
-    # Save the encoder and the trained model to the MODELS_PATH directory. 
-    joblib.dump((model, encoder), os.path.join(MODELS_PATH, 'rna16s_ternary.joblib'))
-    # Save a summary of the training to a JSON file. 
+    # Save the encoder and the trained model weights to the MODELS_PATH directory. 
+    joblib.dump(encoder, os.path.join(MODELS_PATH, 'rna16s_encoder.joblib'))
+    torch.save(model.state_dict(), os.path.join(MODELS_PATH, 'rna16s_weights.pth'))
+    # Save a summary of the training to a JSON file. )
     save_results_dict(results, os.path.join(RESULTS_PATH, 'train_rna16s_results.json'))

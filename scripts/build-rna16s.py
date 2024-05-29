@@ -118,7 +118,7 @@ if __name__ == '__main__':
     metadata_df.columns = ['id', 'label']
     label_map = {'Anaerobe':'anaerobe', 'Aerobe':'aerobe', 'Facultative':'facultative', 'Obligate anaerobe':'anaerobe', 'Obligate aerobe':'aerobe','Facultative anaerobe':'facultative'}
     metadata_df = metadata_df[metadata_df.label.isin(label_map)] # Filter for organisms with an oxygen label is in the map. 
-    metadata_df.label = metadata_df.label.rename(label_map)
+    metadata_df.label = metadata_df.label.replace(label_map)
 
     fasta_df = load_fasta(RNA16S_V3_V4_REGIONS_PATH)
     fasta_df['id'] = [s.split('.')[0] for s in fasta_df.header.tolist()]
