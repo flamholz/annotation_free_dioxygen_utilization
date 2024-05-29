@@ -160,5 +160,5 @@ if __name__ == '__main__':
     aerobe_anaerobe_fraction_df.to_csv(os.path.join(DATA_PATH, 'aerobe_anaerobe_fraction.csv'))
 
     taxonomy_coverage_df = get_taxonomy_coverage_df(metadata_df)
-    print('Writing taxonomy converate data to', os.path.join(DATA_PATH, 'taxonomy_coverage.csv'))
-    aerobe_anaerobe_fraction_df.to_csv(os.path.join(DATA_PATH, 'taxonomy_coverage.csv'))
+    print('Writing taxonomy converage data to', os.path.join(DATA_PATH, 'taxonomy_coverage.csv'))
+    taxonomy_coverage_df.to_csv(os.path.join(DATA_PATH, 'taxonomy_coverage.csv'))

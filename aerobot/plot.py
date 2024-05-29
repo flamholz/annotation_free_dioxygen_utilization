@@ -52,12 +52,13 @@ def plot_order_feature_types(feature_types, order_by:Dict[str, float]=dict()) ->
     order features within annotation-free and annotation-based categories (e.g. to sort by increasing order of validation accuracy).'''
     ordered_feature_types = []
     # First split the input features into annotation-free and annotation-based categories. 
-    for group in [ANNOTATION_BASED_FEATURE_TYPES, ANNOTATION_FREE_FEATURE_TYPES]:
-        feature_type_group = np.array([f for f in feature_types if f in group])
+    for group in [np.array(ANNOTATION_BASED_FEATURE_TYPES), np.array(ANNOTATION_FREE_FEATURE_TYPES)]:
+        group = np.array([f for f in feature_types if f in group])
         # Sort in ascending order according to the values in the order_by dictionary. 
         sort_idxs = np.argsort([order_by.get(f, 0) for f in group])
-        # Use the indices to sort the feature type lists within each category. 
-        ordered_feature_types += feature_type_group[sort_idxs].tolist()
+        # Use the indices to sort the feature type lists within each category.
+        ordered_feature_types += group[sort_idxs].tolist()
+
 
     return ordered_feature_types
 
@@ -176,30 +177,35 @@ def plot_confusion_matrix(results:Dict[str, Dict], feature_type:str=None, ax:plt
     ax.set_yticks(np.arange(len(classes)) + 0.5, classes, rotation=0)
 
 
-def plot_phylo_cv(results:Dict[str, Dict], ax:plt.Axes=None) -> NoReturn:
+def plot_phylo_cv(results:Dict[str, Dict], ax:plt.Axes=None, legend:bool=False) -> NoReturn:
     '''Plots the results of phlogenetic bias analysis.
     
-    :param results:
-    :param ax: 
+    :param results: A dictionary containing the results of phylo-cv runs. 
+    :param ax: A matplotlib Axes object on which to plot the results. 
+    :param legend: Whether or not to plot the legend within the function. 
     ''' 
 
     levels = ['Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species'][::-1]
-    legend = []
+    labels, handles = [], []
 
     for feature_type, results in results.items():
 
         # Plot the error bar, as well as scatter points for each level. 
         means = [np.mean(results['scores'][level]) for level in levels] # Extract the mean F1 scores.
         errs = [np.std(results['scores'][level]) / np.sqrt(len(results['scores'][level])) for level in levels] # Extract the standard errors. 
-        ax.errorbar(np.arange(1, len(levels) + 1), means, yerr=errs, capsize=3)
-        legend.append(feature_type)
+        # Store information for the legend. 
+        handles += ax.errorbar(np.arange(1, len(levels) + 1), means, yerr=errs, capsize=3)
+        labels.append(PRETTY_NAMES.get(feature_type, feature_type))
 
     ax.set_ylabel('balanced accuracy')
     ax.set_ylim(0, 1)
     ax.set_xticks(np.arange(1, len(levels) + 1), labels=levels)
     ax.set_xlabel('holdout level')
-    ax.set_title(PRETTY_NAMES[feature_type], loc='left')
-    ax.legend(legend)
+
+    if legend: # If specified, go ahead and plot the legend. 
+        ax.legend(handles, labels)
+
+    return handles, labels # Return information to use for plotting the legend. 
 
 
 
