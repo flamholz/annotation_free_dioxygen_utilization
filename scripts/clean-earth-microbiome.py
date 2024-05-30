@@ -105,13 +105,13 @@ def filter_data(df:pd.DataFrame) -> pd.DataFrame:
     print('filter_data:', len(df), 'genomes with nore than 50 percent completeness.')
     
     # Filter out entries from samples with fewer than ten MAGs
-    counts = df.groupby('metagenome_id').apply(len)
+    counts = df.groupby('metagenome_id').apply(len, include_groups=False)
     ids_to_keep = counts.index[counts > 10]
     df = df[df.metagenome_id.isin(ids_to_keep)]
     print('filter_data:', len(df), 'genomes from samples with more than ten genomes.')
 
     # Filter our habitats with fewer than ten samples.
-    counts = df.groupby('habitat').apply(len)
+    counts = df.groupby('habitat').apply(len, include_groups=False)
     habitats_to_keep = counts.index[counts > 10]
     df = df[df.habitat.isin(habitats_to_keep)]
     print('filter_data:', len(df), 'genomes from habitats with more than ten samples')
@@ -125,8 +125,10 @@ def get_aerobe_anaerobe_fraction_df(predictions_df:pd.DataFrame, metadata_df:pd.
     df = pd.concat([metadata_df, predictions_df], axis=1)
     # Apply the habitat map to the data. 
     df.habitat = df.habitat.replace(load_habitat_map(merge_human_habitats=True))
-    # Apply some quality controls to the data. 
-    df = filter_data(df)
+    df.to_csv(os.path.join(DATA_PATH, 'merged_raw.csv')) # Write the intermediate DataFrame to a CSV file (for plotting Figure 6). 
+    
+    df = filter_data(df) # Apply some quality controls to the data. 
+    df.to_csv(os.path.join(DATA_PATH, 'merged_filtered.csv')) # Write the intermediate DataFrame to a CSV file (for plotting Figure 6). 
 
     # Calculate the aerobe-anaerobe-facultative fractions for each sample.
     classes = ['aerobe', 'anaerobe', 'facultative'] # Assuming ternary classification. 

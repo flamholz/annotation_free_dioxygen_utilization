@@ -152,6 +152,7 @@ def rna16s_load_datasets(n:int=None) -> Tuple[Rna16SDataset, Rna16SDataset]:
     # Load the testing data from a seperate file. 
     # test_df = pd.read_csv(os.path.join(RNA16S_PATH, 'testing_data.csv'))
     val_df = pd.read_csv(RNA16S_VAL_PATH)
+    test_df = pd.read_csv(RNA16S_TEST_PATH)
 
     # Map labels to integers. Fit the encoder using the training labels. 
     encoder = LabelEncoder()
@@ -159,7 +160,7 @@ def rna16s_load_datasets(n:int=None) -> Tuple[Rna16SDataset, Rna16SDataset]:
 
     datasets = {}
     # for dataset_label, df in zip(['training', 'validation', 'testing'], [train_df, val_df, test_df]):
-    for dataset_label, df in zip(['training', 'validation'], [train_df, val_df]):
+    for dataset_label, df in zip(['training', 'validation', 'testing'], [train_df, val_df, test_df]):
         seqs = [seq.upper() for seq in df['seq']]
         labels = encoder.transform(df['label'].tolist()) # Convert the labels to integers using the fitted encoder.
         dataset = Rna16SDataset(seqs, labels)

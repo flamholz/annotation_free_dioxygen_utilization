@@ -30,7 +30,7 @@ if __name__ == '__main__':
     results['val_accs'] = val_accs
     results['best_epoch'] = best_epoch
     results['batch_size'] = args.batch_size
-    results['n_epochs'] = args.n_epochs 
+    results['n_epochs'] = args.n_epochs
 
     # Save a summary of the training to a JSON file. )
     save_results_dict(results, os.path.join(RESULTS_PATH, 'train_rna16s_results.json'))

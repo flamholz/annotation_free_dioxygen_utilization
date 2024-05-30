@@ -1,27 +1,73 @@
-'''Code for generating figures from model outputs. Functions are designed to interface with results dictionaries, which are given as 
-output by model training and evaluation scripts.'''
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import numpy as np 
 import pandas as pd
+from matplotlib.colors import ListedColormap
 from aerobot.io import FEATURE_TYPES, FEATURE_SUBTYPES, RESULTS_PATH, load_results_dict
 import matplotlib.ticker as ticker
 import seaborn as sns
 from typing import Dict, NoReturn, List
 import os
 import scipy.optimize
+import colour
+
+# https://journals.asm.org/writing-your-paper#figures-tables
+
+def plot_color_palette():
+    '''Defines a nice color palette. Taken from viz.py.'''
+    palette = dict()
+    palette['green'] = '#7AA974'
+    palette['palegreen'] = '#DCECCB'
+    palette['lightgreen'] = '#BFD598'
+    palette['darkgreen'] = '#7E9D90'
+    palette['yellow'] = '#EAC264'
+    palette['lightyellow'] = '#F3DAA9'
+    palette['paleyellow'] = '#FFEDCE'
+    palette['blue'] = '#738FC1'
+    palette['lightblue'] = '#A9BFE3'
+    palette['darkblue'] = '#535D87'
+    palette['paleblue'] = '#C9D7EE'
+    palette['red'] = '#D56C55'
+    palette['lightred'] = '#E8B19D'
+    palette['palered'] = '#F1D4C9'
+    palette['purple'] = '#AB85AC' 
+    palette['lightpurple'] = '#D4C2D9'
+    palette['darkbrown'] = '#905426'
+    return palette
 
 
-def plot_configure_mpl(n_colors:int=6, title_font_size:int=12, label_font_size:int=8):
+def plot_color_map():
+    '''Creates a custom color map to match the other color scheme.'''
+    start_color = colour.Color(plot_color_palette()['paleblue'])
+    end_color = colour.Color(plot_color_palette()['darkblue'])
+    gradient = list(start_color.range_to(end_color, 20))
+    gradient = [c.hex for c in gradient]
+    return ListedColormap(gradient)
+
+
+def plot_configure_mpl(title_font_size:int=6, label_font_size:int=5, figure_width:float=6.875, figure_height:float=2.5):
+    '''Configure the matplotlib RC file, many of these settings are taken from the viz.py file.'''
     # Some specs to make plots look nice. 
     plt.rc('font', **{'family':'sans-serif', 'sans-serif':['Arial'], 'size':label_font_size})
-    plt.rc('xtick', **{'labelsize':label_font_size})
-    plt.rc('ytick', **{'labelsize':label_font_size})
+    plt.rc('legend', **{'fontsize':label_font_size})
+    plt.rc('xtick', **{'labelsize':label_font_size, 'color':'k'})
+    plt.rc('ytick', **{'labelsize':label_font_size, 'color':'k'})
     plt.rc('axes',  **{'titlesize':title_font_size, 'labelsize':label_font_size})
-    # plt.rcParams['image.cmap'] = 'Paired'
 
-    plt.rcParams['image.cmap'] = 'Blues'
-    plt.rcParams['axes.prop_cycle'] = plt.cycler('color', plt.cm.Blues(np.linspace(0.2, 1, n_colors)[::-1]))
+    plt.rcParams['image.cmap'] = plot_color_map() # Should only use blues when indicating varying intensity. 
+    plt.rcParams['mathtext.fontset'] = 'stixsans'
+    plt.rcParams['mathtext.sf'] = 'sans'
+    plt.rcParams['figure.dpi'] = 300
+    plt.rcParams['figure.figsize'] = (figure_width, figure_height)
+
+    palette = plot_color_palette() # Get the color palette and set a default cycler. 
+    color_cycle = [palette['purple'], palette['green'], palette['blue']] + [palette[c] for c in palette.keys() if c not in ['purple', 'green', 'blue']]
+    plt.rcParams['axes.prop_cycle'] = plt.cycler('color', color_cycle)
+
+    plt.rc('text.latex', preamble=r'\usepackage{sfmath}')
+    plt.rc('mathtext', fontset='stixsans', sf='sans')
+
+
 
 
 # Pretty names for each feature type, for plotting. 
@@ -107,6 +153,24 @@ def plot_percent_above_random_axis(ax:plt.Axes, binary:bool=False):
     # ax.axhline(random_baseline, color='grey', linestyle='--', linewidth=2, zorder=-10)
 
 
+def plot_balanced_accuracy_axis(ax:plt.Axes, random_baseline:float=0.33):
+    '''
+
+    :param ax: The axis to format. 
+    :param random_baseline: Expected performance for random classifier on task. 
+    '''
+
+    # Set up left y-axis with the balanced accuracy information. 
+    ax.set_ylabel('balanced accuracy')
+    ax.set_ylim(0, 1.02)
+    ax.set_yticks(np.arange(0, 1.1, 0.2))
+    ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1)) # xmax is the number to divide by for the percentage.
+
+    if random_baseline is not None:
+        # Add horizontal line marking model performance with random classification. 
+        ax.axhline(random_baseline, color='grey', linestyle='--', linewidth=2, zorder=-10)
+
+
 def plot_model_accuracy_barplot(results:Dict[str, Dict], ax:plt.Axes=None, colors=['tab:blue', 'tab:green'], feature_type_order:List[str]=None) -> NoReturn:
     '''Plot a barplot which displays the training and validation accuracy for a model type trained on different 
     feature types. 
@@ -114,32 +178,18 @@ def plot_model_accuracy_barplot(results:Dict[str, Dict], ax:plt.Axes=None, color
     :param results: A dictionary mapping each feature type to the training results generated by train.py.
     :param ax: A matplotlib Axes object on which to plot the figure. 
     :param colors: A list of two colors to distinguish between annotation-based and annotation-free feature types.
-    :param feature_type_order: 
+    :param feature_type_order: The order of the feature types along the x-axis. 
     '''
     # Make sure annotation-based and annotation free are iterated over in clumps.
     # Also want to make sure the bars are plotted in order of best validation accuracy, within their clumps.  
-    # feature_types = plot_order_feature_types(set(results.keys()), order_by={f:r['validation_acc'] for f, r in results.items()})
     feature_types = feature_type_order if feature_type_order is not None else plot_order_feature_types(list(results.keys())) 
     
-    def _format_barplot_axes(ax:plt.Axes):
-
-        random_baseline = 0.5 if results[feature_types[0]]['binary'] else 0.33 # Expected performance for random classifier on task. 
-        # Label bins with the feature name. 
-        ax.set_xticks(np.arange(0, len(feature_types), 1), [PRETTY_NAMES[f] for f in feature_types], rotation=45, ha='right')
-        # Set up y-axis with the balanced accuracy information. 
-        ax.set_ylabel('balanced accuracy')
-        ax.set_ylim(0, 1)
-        ax.set_yticks(np.arange(0, 1.1, 0.1))
-        ax.yaxis.set_major_formatter(ticker.PercentFormatter(xmax=1)) # xmax is the number to divide by for the percentage.
-        # Add horizontal line marking model performance with random classification. 
-        ax.axhline(random_baseline, color='grey', linestyle='--', linewidth=2, zorder=-10)
-
     # Extract the final balanced accuracies on training and validation sets from the results dictionaries. 
     train_accs  = [results[feature_type]['training_acc'] for feature_type in feature_types]
     val_accs  = [results[feature_type]['validation_acc'] for feature_type in feature_types]
 
     # Map annotation-free or annotation-based features to different colors. 
-    colors = [colors[0] if f in ANNOTATION_BASED_FEATURE_TYPES else colors[1] for f in feature_types] 
+    colors = [plot_color_palette()['blue'] if f in ANNOTATION_BASED_FEATURE_TYPES else plot_color_palette()['green'] for f in feature_types] 
     ax.bar(np.arange(0, len(feature_types), 1) - 0.2, train_accs, width=0.4, label='training', color=colors, edgecolor='k', linewidth=0.5, hatch='//')
     ax.bar(np.arange(0, len(feature_types), 1) + 0.2, val_accs, width=0.4, label='validation', color=colors, edgecolor='k', linewidth=0.5)
 
@@ -148,13 +198,16 @@ def plot_model_accuracy_barplot(results:Dict[str, Dict], ax:plt.Axes=None, color
     handles.append(plt.Rectangle((0, 0), 1, 1, facecolor='white', edgecolor='k', linewidth=0.5, hatch=''))
  
     labels = ['training', 'validation']
-    plt.legend(handles, labels, ncol=2, fontsize=7, columnspacing=0.3, handletextpad=0.3, loc='upper left', bbox_to_anchor=(0.25, 0.99))
+    plt.legend(handles, labels,  loc='lower right')
+    
+    # Label bins with the feature name. 
+    ax.set_xticks(np.arange(0, len(feature_types), 1), [PRETTY_NAMES[f] for f in feature_types], rotation=45, ha='right')
 
-    _format_barplot_axes(ax)
+    plot_balanced_accuracy_axis(ax, random_baseline=0.5 if results[feature_types[0]]['binary'] else 0.33 )
 
 
 
-def plot_confusion_matrix(results:Dict[str, Dict], feature_type:str=None, ax:plt.Axes=None) -> NoReturn:
+def plot_confusion_matrix(results:Dict[str, Dict], ax:plt.Axes=None) -> NoReturn:
     '''Plots a confusion matrix for a particular model evaluated on data of a particular feature type.'''
 
     plot_configure_mpl() # I guess I have to call this here too...
@@ -170,8 +223,7 @@ def plot_confusion_matrix(results:Dict[str, Dict], feature_type:str=None, ax:plt
     confusion_matrix = confusion_matrix.apply(lambda x: x/x.sum(), axis=1) # Normalize the matrix.
     ax.set_xlabel('predicted label')
     ax.set_ylabel('true label')
-    ax.set_title(PRETTY_NAMES[feature_type], loc='center')
-    sns.heatmap(confusion_matrix, ax=ax, cmap='Blues', annot=True, fmt='.1%', cbar=False)
+    sns.heatmap(confusion_matrix, ax=ax, cmap=plot_color_map(), annot=True, fmt='.1%', cbar=False, linecolor='k', linewidths=0.2)
     # Rotate the tick labels on the x-axis of each subplot.
     ax.set_xticks(np.arange(len(classes)) + 0.5, classes, rotation=45)
     ax.set_yticks(np.arange(len(classes)) + 0.5, classes, rotation=0)
@@ -199,7 +251,7 @@ def plot_phylo_cv(results:Dict[str, Dict], ax:plt.Axes=None, legend:bool=False) 
 
     ax.set_ylabel('balanced accuracy')
     ax.set_ylim(0, 1)
-    ax.set_xticks(np.arange(1, len(levels) + 1), labels=levels)
+    ax.set_xticks(np.arange(1, len(levels) + 1), labels=levels, rotation=45)
     ax.set_xlabel('holdout level')
 
     if legend: # If specified, go ahead and plot the legend. 
@@ -209,82 +261,26 @@ def plot_phylo_cv(results:Dict[str, Dict], ax:plt.Axes=None, legend:bool=False) 
 
 
 
-def plot_fit_logistic_curve(x:np.ndarray, y:np.ndarray, min_x_val:int=1000, max_x_val:int=40000):
-    '''Fit a logistic curve to the input data.'''
+# def plot_fit_logistic_curve(x:np.ndarray, y:np.ndarray, min_x_val:int=1000, max_x_val:int=40000):
+#     '''Fit a logistic curve to the input data.'''
 
-    def logistic(x:np.ndarray, k:float, x0:float, L:float):
-        '''Logistic curve equation for fitting the data.'''
-        return L / (1 + np.exp(-k * (x - x0)))
+#     def logistic(x:np.ndarray, k:float, x0:float, L:float):
+#         '''Logistic curve equation for fitting the data.'''
+#         return L / (1 + np.exp(-k * (x - x0)))
 
-    def residuals(params:np.ndarray, y:np.ndarray, x:np.ndarray):
-        '''Compute residuals between least squares approximation and the true y-values.'''
-        k, x0, L = params
-        err = y - logistic(x, k, x0, L)
-        return err
+#     def residuals(params:np.ndarray, y:np.ndarray, x:np.ndarray):
+#         '''Compute residuals between least squares approximation and the true y-values.'''
+#         k, x0, L = params
+#         err = y - logistic(x, k, x0, L)
+#         return err
 
-    params = [0.0001, 0, 1] # Initial guesses for the parameters.
-    lsq = scipy.optimize.least_squares(residuals, params, args=(y, x)) 
-    k, x0, L = lsq.x # Get the fitted params from the least-squares result. 
-    # print('k =', k)
-    # print('x0 =', x0)
-    # print('L =', L)
-    # Compute x and y values for the fitted function. 
-    x = np.linspace(min_x_val, max_x_val, 100)
-    y = logistic(x, k, x0, L)
-    return x, y
-
-# def plot_phylo_bias(
-#     nonlinear_results:Dict[str, Dict[str, Dict]]=None, 
-#     logistic_results:Dict[str, Dict[str, Dict]]=None, 
-#     meanrel_results:Dict[str, Dict]=None,
-#     path:str=None, 
-#     show_points:bool=False) -> NoReturn:
-    
-#     levels = ['Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species'][::-1]
-#     fig, ax = plt.subplots(figsize=(15, 6))
-#     # Get a set of all feature types present in both input dictionaries. 
-#     colors = CMAP(np.linspace(0.2, 1, len(FEATURE_TYPES)))
-#     legend = []
-
-#     def _plot(results:Dict, color:str=None, linestyle='-'):
-#             # Plot the error bar, as well as scatter points for each level. 
-#             means = [results['scores'][level]['mean'] for level in levels] # Extract the mean F1 scores.
-#             errs = [results['scores'][level]['err'] for level in levels] # Extract the standard errors. 
-#             level_scores = [results['scores'][level]['scores'] for level in levels] # Extract the raw scores for each level. 
-#             # Convert the scores to points for a scatter plot. 
-#             scores_x = np.ravel([np.repeat(i + 1, len(s)) for i, s in enumerate(level_scores)])
-#             scores_y = np.ravel(level_scores)
-#             ax.errorbar(np.arange(1, len(levels) + 1), means, yerr=errs, c=color, capsize=3)
-
-#             if show_points: # Only show the points if specified.
-#                 ax.scatter(scores_x, scores_y, color=color)
-
-#     for feature_type, color in zip(FEATURE_TYPES, colors):
-#         if (nonlinear_results is not None) and (feature_type in nonlinear_results):
-#             results = nonlinear_results[feature_type]
-#             _plot(results, color=color, linestyle='-')
-#             legend.append(f'{PRETTY_NAMES[feature_type]} (nonlinear)')
-        
-#         if (logistic_results is not None) and (feature_type in logistic_results):
-#             results = logistic_results[feature_type]
-#             _plot(results, color=color, linestyle='--')
-#             legend.append(f'{PRETTY_NAMES[feature_type]} (logistic)')
-
-#     if (meanrel_results is not None):
-#         _plot(meanrel_results, color='black', linestyle='--')
-
-#     ax.legend(legend, bbox_to_anchor=(1.3, 1))
-#     ax.set_ylabel('balanced accuracy')
-#     ax.set_ylim(0, 1)
-#     ax.set_xticks(np.arange(1, len(levels) + 1), labels=levels)
-#     ax.set_xlabel('holdout level')
-#     ax.set_title(f'Phylogenetic bias analysis')
-
-#     plt.tight_layout()
-#     if path is not None:
-#         plt.savefig(path, dpi=500, format='PNG', bbox_inches='tight')
-#         plt.close()  # Prevent figure from being displayed in notebook.
-#     else:
-#         plt.show()
-
-
+#     params = [0.0001, 0, 1] # Initial guesses for the parameters.
+#     lsq = scipy.optimize.least_squares(residuals, params, args=(y, x)) 
+#     k, x0, L = lsq.x # Get the fitted params from the least-squares result. 
+#     # print('k =', k)
+#     # print('x0 =', x0)
+#     # print('L =', L)
+#     # Compute x and y values for the fitted function. 
+#     x = np.linspace(min_x_val, max_x_val, 100)
+#     y = logistic(x, k, x0, L)
+#     return x, y

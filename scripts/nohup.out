@@ -1,0 +1,35 @@
+Traceback (most recent call last):
+  File "/home/prichter/Documents/aerobot/scripts/phylo-cv.py", line 109, in <module>
+    dataset, _ = dataset_load_training_validation(feature_type, binary=args.binary, to_numpy=False) # Load the training dataset without converting to numpy arrays (yet).
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/prichter/Documents/aerobot/aerobot/dataset.py", line 168, in dataset_load_training_validation
+    training_dataset = dataset_load(os.path.join(DATA_PATH, 'updated_training_datasets.h5'), feature_type=feature_type, normalize=normalize)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/prichter/Documents/aerobot/aerobot/dataset.py", line 125, in dataset_load
+    dataset = dataset_normalize(dataset)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/prichter/Documents/aerobot/aerobot/dataset.py", line 50, in dataset_normalize
+    dataset['features'] = dataset['features'].apply(lambda row : row / row.sum(), axis=1)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/prichter/miniconda3/envs/aerobot/lib/python3.12/site-packages/pandas/core/frame.py", line 10374, in apply
+    return op.apply().__finalize__(self, method="apply")
+           ^^^^^^^^^^
+  File "/home/prichter/miniconda3/envs/aerobot/lib/python3.12/site-packages/pandas/core/apply.py", line 916, in apply
+    return self.apply_standard()
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/prichter/miniconda3/envs/aerobot/lib/python3.12/site-packages/pandas/core/apply.py", line 1063, in apply_standard
+    results, res_index = self.apply_series_generator()
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/prichter/miniconda3/envs/aerobot/lib/python3.12/site-packages/pandas/core/apply.py", line 1085, in apply_series_generator
+    results[i] = results[i].copy(deep=False)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/prichter/miniconda3/envs/aerobot/lib/python3.12/site-packages/pandas/core/generic.py", line 6813, in copy
+    return self._constructor_from_mgr(data, axes=data.axes).__finalize__(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/prichter/miniconda3/envs/aerobot/lib/python3.12/site-packages/pandas/core/generic.py", line 6262, in __finalize__
+    self.flags.allows_duplicate_labels = other.flags.allows_duplicate_labels
+                                         ^^^^^^^^^^^
+  File "/home/prichter/miniconda3/envs/aerobot/lib/python3.12/site-packages/pandas/core/generic.py", line 405, in flags
+    @final
+
+KeyboardInterrupt
