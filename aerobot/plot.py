@@ -54,7 +54,6 @@ def plot_configure_mpl(title_font_size:int=6, label_font_size:int=5, figure_widt
     plt.rc('ytick', **{'labelsize':label_font_size, 'color':'k'})
     plt.rc('axes',  **{'titlesize':title_font_size, 'labelsize':label_font_size})
 
-    plt.rcParams['image.cmap'] = plot_color_map() # Should only use blues when indicating varying intensity. 
     plt.rcParams['mathtext.fontset'] = 'stixsans'
     plt.rcParams['mathtext.sf'] = 'sans'
     plt.rcParams['figure.dpi'] = 300
@@ -229,7 +228,7 @@ def plot_confusion_matrix(results:Dict[str, Dict], ax:plt.Axes=None) -> NoReturn
     ax.set_yticks(np.arange(len(classes)) + 0.5, classes, rotation=0)
 
 
-def plot_phylo_cv(results:Dict[str, Dict], ax:plt.Axes=None, legend:bool=False) -> NoReturn:
+def plot_phylo_cv(results:Dict[str, Dict], ax:plt.Axes=None, legend:bool=False, color:str=plot_color_palette()['darkblue']) -> NoReturn:
     '''Plots the results of phlogenetic bias analysis.
     
     :param results: A dictionary containing the results of phylo-cv runs. 
@@ -246,7 +245,7 @@ def plot_phylo_cv(results:Dict[str, Dict], ax:plt.Axes=None, legend:bool=False) 
         means = [np.mean(results['scores'][level]) for level in levels] # Extract the mean F1 scores.
         errs = [np.std(results['scores'][level]) / np.sqrt(len(results['scores'][level])) for level in levels] # Extract the standard errors. 
         # Store information for the legend. 
-        handles += ax.errorbar(np.arange(1, len(levels) + 1), means, yerr=errs, capsize=3)
+        handles += ax.errorbar(np.arange(1, len(levels) + 1), means, yerr=errs, capsize=3, c=color)
         labels.append(PRETTY_NAMES.get(feature_type, feature_type))
 
     ax.set_ylabel('balanced accuracy')
