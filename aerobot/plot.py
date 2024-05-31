@@ -47,11 +47,13 @@ def plot_color_map():
     return ListedColormap(gradient)
 
 
-def plot_configure_mpl(title_font_size:int=6, label_font_size:int=5, figure_width:float=6.875, figure_height:float=2.5, line_width:float=0.75):
+def plot_configure_mpl(title_font_size:int=6.5, label_font_size:float=6.5,
+                       legend_font_size:int=6, figure_width:float=6.875,
+                       figure_height:float=2.5, line_width:float=0.75):
     '''Configure the matplotlib RC file, many of these settings are taken from the viz.py file.'''
     # Some specs to make plots look nice. 
     plt.rc('font', **{'family':'sans-serif', 'sans-serif':['Arial'], 'size':label_font_size})
-    plt.rc('legend', **{'fontsize':label_font_size})
+    plt.rc('legend', **{'fontsize':legend_font_size})
     plt.rc('xtick', **{'labelsize':label_font_size, 'color':'k'})
     plt.rc('ytick', **{'labelsize':label_font_size, 'color':'k'})
     plt.rc('axes',  **{'titlesize':title_font_size, 'labelsize':label_font_size})
