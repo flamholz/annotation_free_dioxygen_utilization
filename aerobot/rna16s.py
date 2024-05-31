@@ -19,7 +19,9 @@ import sklearn.model_selection
 import pandas as pd
 import pickle
 import sklearn
-from tqdm import tqdm 
+from tqdm import tqdm
+import numpy as np
+from time import perf_counter 
 
 RNA16S_PATH = os.path.join(DATA_PATH, '16s')
 RNA16S_TRAIN_PATH = os.path.join(RNA16S_PATH, 'rna16s_train.csv')
@@ -29,6 +31,7 @@ RNA16S_VAL_PATH = os.path.join(RNA16S_PATH, 'rna16s_val.csv')
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # TODO: Should I implement the thing where I store the best model weights in the other models? Seems like it might be a good idea. 
+# TODO: Might be worth embedding the genomes ahead of time. 
 
 # NOTE: The file I am basing this on is called "fine-tune," but it seems as though all of the weights for the LLM are frozen?
 
@@ -37,6 +40,17 @@ def rna16s_load_genslm():
     # model_cache_dir is a directory where model weights have been downloaded to
     model = GenSLM('genslm_25M_patric', model_cache_dir=RNA16S_PATH)
     model.to(device)
+    total_params = sum(p.numel() for p in model.parameters())
+
+    print(f'rna16s_load_genslm: Loaded genslm model with {total_params} parameters.')
+    
+    # This freezes the weights of the base GenSLM model.  
+    for param in model.parameters():
+        param.requires_grad = False 
+        
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    assert trainable_params == 0, 'rna16s_load_genslm: There should be no trainable parameters in the loaded pre-trained model.'
+
     return model 
 
 
@@ -61,10 +75,7 @@ class Rna16SClassifier(torch.nn.Module):
         super(Rna16SClassifier, self).__init__()
 
         self.genslm = rna16s_load_genslm()
-        # This freezes the weights of the base GenSLM model.  
-        for param in self.genslm.parameters():
-            param.requires_grad = False
-        
+
         self.classifier = torch.nn.Sequential(torch.nn.Linear(hidden_dim, n_classes))
         self.loss_func = torch.nn.CrossEntropyLoss()
         self.lr  = 0.01
@@ -72,12 +83,17 @@ class Rna16SClassifier(torch.nn.Module):
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
 
     def forward(self, input_ids:torch.FloatTensor=None, attention_mask:torch.FloatTensor=None):
+        '''A forward pass of the Rna16SClassifier.'''
+        t1 = perf_counter()
 
         # Pass the inputs into the underlying GenSLM model to produce embeddings.  
         kwargs = {'input_ids':input_ids, 'attention_mask':attention_mask, 'output_hidden_states':True}
         outputs = self.genslm(**kwargs)
         # Extract the last set of hidden states and mean-pool over sequence length. 
         embeddings = outputs.hidden_states[-1].mean(dim=1)
+
+        t2 = perf_counter()
+        print(f'Rna16SClassifier.forward: Embedding the 16S sequence took {np.round(t2 - t1, 2)} seconds.')
         return self.classifier(embeddings)
 
     def predict(self, dataset:Rna16SDataset):
