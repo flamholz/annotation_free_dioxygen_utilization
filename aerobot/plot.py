@@ -13,6 +13,8 @@ import colour
 
 # https://journals.asm.org/writing-your-paper#figures-tables
 
+
+
 def plot_color_palette():
     '''Defines a nice color palette. Taken from viz.py.'''
     palette = dict()
@@ -45,7 +47,7 @@ def plot_color_map():
     return ListedColormap(gradient)
 
 
-def plot_configure_mpl(title_font_size:int=6, label_font_size:int=5, figure_width:float=6.875, figure_height:float=2.5):
+def plot_configure_mpl(title_font_size:int=6, label_font_size:int=5, figure_width:float=6.875, figure_height:float=2.5, line_width:float=0.75):
     '''Configure the matplotlib RC file, many of these settings are taken from the viz.py file.'''
     # Some specs to make plots look nice. 
     plt.rc('font', **{'family':'sans-serif', 'sans-serif':['Arial'], 'size':label_font_size})
@@ -59,8 +61,12 @@ def plot_configure_mpl(title_font_size:int=6, label_font_size:int=5, figure_widt
     plt.rcParams['figure.dpi'] = 300
     plt.rcParams['figure.figsize'] = (figure_width, figure_height)
 
+    mpl.rcParams['errorbar.capsize'] = 3
+    mpl.rcParams['lines.linewidth'] = line_width
+
     palette = plot_color_palette() # Get the color palette and set a default cycler. 
-    color_cycle = [palette['purple'], palette['green'], palette['blue']] + [palette[c] for c in palette.keys() if c not in ['purple', 'green', 'blue']]
+    palette_order = ['purple', 'green', 'blue', 'red', 'yellow']
+    color_cycle = [palette[c] for c in palette_order] + [palette[c] for c in palette.keys() if c not in palette_order]
     plt.rcParams['axes.prop_cycle'] = plt.cycler('color', color_cycle)
 
     plt.rc('text.latex', preamble=r'\usepackage{sfmath}')
@@ -228,12 +234,13 @@ def plot_confusion_matrix(results:Dict[str, Dict], ax:plt.Axes=None) -> NoReturn
     ax.set_yticks(np.arange(len(classes)) + 0.5, classes, rotation=0)
 
 
-def plot_phylo_cv(results:Dict[str, Dict], ax:plt.Axes=None, legend:bool=False, color:str=plot_color_palette()['darkblue']) -> NoReturn:
+def plot_phylo_cv(results:Dict[str, Dict], ax:plt.Axes=None, legend:bool=False, color:str=None) -> NoReturn:
     '''Plots the results of phlogenetic bias analysis.
     
     :param results: A dictionary containing the results of phylo-cv runs. 
     :param ax: A matplotlib Axes object on which to plot the results. 
     :param legend: Whether or not to plot the legend within the function. 
+    :param color: If specified, the color of all lines in the plot. 
     ''' 
 
     levels = ['Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species'][::-1]
@@ -245,11 +252,13 @@ def plot_phylo_cv(results:Dict[str, Dict], ax:plt.Axes=None, legend:bool=False, 
         means = [np.mean(results['scores'][level]) for level in levels] # Extract the mean F1 scores.
         errs = [np.std(results['scores'][level]) / np.sqrt(len(results['scores'][level])) for level in levels] # Extract the standard errors. 
         # Store information for the legend. 
-        handles += ax.errorbar(np.arange(1, len(levels) + 1), means, yerr=errs, capsize=3, c=color)
+        if color is not None:
+            handles.append(ax.errorbar(np.arange(1, len(levels) + 1), means, yerr=errs, capsize=3, c=color)[0])
+        else: # If no color is specified, just use whatever color is in the lineup for the color cycler. 
+            handles.append(ax.errorbar(np.arange(1, len(levels) + 1), means, yerr=errs, capsize=3)[0])
         labels.append(PRETTY_NAMES.get(feature_type, feature_type))
 
-    ax.set_ylabel('balanced accuracy')
-    ax.set_ylim(0, 1)
+    plot_balanced_accuracy_axis(ax, random_baseline=None)
     ax.set_xticks(np.arange(1, len(levels) + 1), labels=levels, rotation=45)
     ax.set_xlabel('holdout level')
 
