@@ -217,8 +217,6 @@ def plot_model_accuracy_barplot(results:Dict[str, Dict], ax:plt.Axes=None, color
 def plot_confusion_matrix(results:Dict[str, Dict], ax:plt.Axes=None) -> NoReturn:
     '''Plots a confusion matrix for a particular model evaluated on data of a particular feature type.'''
 
-    plot_configure_mpl() # I guess I have to call this here too...
-    
     binary = results['binary'] # Assume all have the same value, but might want to add a check.
     classes = results['classes'] # This should also be the same for each feature type. 
 
