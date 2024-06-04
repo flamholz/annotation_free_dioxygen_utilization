@@ -14,13 +14,13 @@ from typing import Tuple, Dict, List
 from genslm import GenSLM, SequenceDataset
 import pandas as pd
 from aerobot.io import DATA_PATH
-from sklearn.preprocessing import LabelEncoder
 import sklearn.model_selection
 import pandas as pd
 import pickle
 import sklearn
 from tqdm import tqdm
 import numpy as np
+from sklearn.preprocessing import LabelEncoder
 from time import perf_counter 
 
 RNA16S_PATH = os.path.join(DATA_PATH, '16s')
@@ -30,10 +30,7 @@ RNA16S_VAL_PATH = os.path.join(RNA16S_PATH, 'rna16s_val.csv')
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-# TODO: Should I implement the thing where I store the best model weights in the other models? Seems like it might be a good idea. 
-# TODO: Might be worth embedding the genomes ahead of time. 
-
-# NOTE: The file I am basing this on is called "fine-tune," but it seems as though all of the weights for the LLM are frozen?
+# TODO: Probably want to make sure everything works for unlabeled data. 
 
 def rna16s_load_genslm():
     # First argument is model ID corresponding to a pre-trained model. (e.g., genslm_25M_patric)
@@ -42,7 +39,7 @@ def rna16s_load_genslm():
     model.to(device)
     total_params = sum(p.numel() for p in model.parameters())
 
-    print(f'rna16s_load_genslm: Loaded genslm model with {total_params} parameters.')
+    # print(f'rna16s_load_genslm: Loaded genslm model with {total_params} parameters.')
     
     # This freezes the weights of the base GenSLM model.  
     for param in model.parameters():
@@ -54,27 +51,107 @@ def rna16s_load_genslm():
     return model 
 
 
-class Rna16SDataset(SequenceDataset):
+def rna16s_get_encoder() -> LabelEncoder:
+    '''Get a fitted LabelEncoder object, which has been fit on the training labels.'''
+
+    train_labels = pd.read_csv(RNA16S_TRAIN_PATH, usecols=['label'])
+    train_labels = train_labels.label.values.tolist()
+    
+    encoder = LabelEncoder() # Instantiate a LabelEncoder. 
+    encoder.fit(train_labels)
+    return encoder
+
+
+class Rna16SSequenceDataset(SequenceDataset):
     '''A Dataset object for working with 16S sequences and their corresponding metabolic labels.'''
-    def __init__(self, seqs, labels, *args, **kwargs):
+    def __init__(self, path:str, encoder:LabelEncoder):
+
         # Need to grab some attributes from the GenSLM model. 
-        # TODO: There is definitely a better way to do this... 
         gslm = rna16s_load_genslm()
-        super().__init__(seqs, gslm.seq_length, gslm.tokenizer, *args, **kwargs)
-        self.labels = labels
+        # Expect this DataFrame to have genome ID as index, a label column, and the raw sequences. 
+        df = pd.read_csv(path, index_col=0) 
+        seqs = [seq.upper() for seq in df['seq']]
+        super().__init__(seqs, gslm.seq_length, gslm.tokenizer)
+
+        self.labels = encoder.transform(df['label'].values)
+        self.labels_decoded = df['label'].values # Also store the original string labels. 
+        self.genome_ids = df.index.values
 
     def __getitem__(self, idx):
         item = super().__getitem__(idx)
         item['label'] = self.labels[idx]
+        item['label_decoded'] = self.labels_decoded[idx]
+        item['genome_id'] = self.genome_ids[idx]
         return item
+
+
+class Rna16SEmbeddingDataset(Dataset):
+    '''A Dataset object for working with 16S sequences and their corresponding metabolic labels.'''
+    def __init__(self, path:str, encoder:LabelEncoder):
+
+        super(Rna16SEmbeddingDataset, self).__init__()
+        # Expect this DataFrame to have genome ID as index, a label column, and the stored embeddings. 
+        df = pd.read_csv(path, index_col=0) 
+        
+        # If labels are present in the file, load them into the Dataset. 
+        self.labels, self.labels_decoded = None, None
+        if 'label' in df.columns:
+            self.labels = encoder.transform(df['label'].values)
+            self.labels_decoded = df['label'].values # Also store the original string labels. 
+
+        self.embeddings = df.drop(columns=['label']).values
+        self.genome_ids = df.index.values
+
+        self.length = len(df)
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, idx):
+        item = dict()
+        if self.labels is not None:
+            item['label'] = self.labels[idx]
+            item['label_decoded'] = self.labels_decoded[idx]
+        item['embedding'] = torch.FloatTensor(self.embeddings[idx])
+        item['genome_id'] = self.genome_ids[idx]
+        return item
+
+
+def rna16s_embed(seq_path:str, emb_path:str, batch_size:int=1, encoder:LabelEncoder=None):
+
+    genslm = rna16s_load_genslm() # Load the pre-trained model. 
+
+    dataset = Rna16SSequenceDataset(seq_path, encoder)
+    # Process the sequences in batches in order to reduce computational cost. 
+    dataloader = DataLoader(dataset, batch_size=batch_size)  # Initialize a DataLoader with the training Dataset. 
+
+    labels, genome_ids, embeddings = [], [], []
+    for batch in tqdm(dataloader, desc='rna16s_embed: Embedding sequences...'):
+        genome_ids.append(batch['genome_id'])
+        labels.append(batch['label_decoded']) # Grab the plain labels (not one-hot encoded).
+
+        # Pass the inputs into the underlying GenSLM model to produce embeddings.  
+        inputs = {'input_ids':batch['input_ids'], 'attention_mask':batch['attention_mask'], 'output_hidden_states':True}
+        outputs = genslm(**inputs)
+        # Extract the last set of hidden states and mean-pool over sequence length. 
+        embeddings.append(outputs.hidden_states[-1].mean(dim=1).detach().numpy())
+    
+    embeddings = np.concatenate(embeddings, axis=0)
+    assert embeddings.shape[1] == 512, 'rna16s_embed: Embedding dimension should be 512.'
+
+    df = pd.DataFrame(embeddings)
+    df.index = np.array(genome_ids).ravel() # Set the index to be the genome ID. 
+    if len(labels) > 0:
+        df['label'] = np.array(labels).ravel()
+
+    print(f'rna16s_embed: Writing embeddings to {emb_path}')
+    df.to_csv(emb_path)
 
 
 class Rna16SClassifier(torch.nn.Module):
     def __init__(self, n_classes:int=3, hidden_dim:int=512):
-        '''Initialize a 16S-based classifier.'''
+        '''Initialize a model for classifying genslm-generated 16S embeddings.'''
         super(Rna16SClassifier, self).__init__()
-
-        self.genslm = rna16s_load_genslm()
 
         self.classifier = torch.nn.Sequential(torch.nn.Linear(hidden_dim, n_classes))
         self.loss_func = torch.nn.CrossEntropyLoss()
@@ -82,39 +159,35 @@ class Rna16SClassifier(torch.nn.Module):
         # Change optimizer
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
 
-    def forward(self, input_ids:torch.FloatTensor=None, attention_mask:torch.FloatTensor=None):
+    def forward(self, embedding:torch.FloatTensor=None, **kwargs):
         '''A forward pass of the Rna16SClassifier.'''
-        t1 = perf_counter()
+        return self.classifier(embedding)
 
-        # Pass the inputs into the underlying GenSLM model to produce embeddings.  
-        kwargs = {'input_ids':input_ids, 'attention_mask':attention_mask, 'output_hidden_states':True}
-        outputs = self.genslm(**kwargs)
-        # Extract the last set of hidden states and mean-pool over sequence length. 
-        embeddings = outputs.hidden_states[-1].mean(dim=1)
-
-        t2 = perf_counter()
-        print(f'Rna16SClassifier.forward: Embedding the 16S sequence took {np.round(t2 - t1, 2)} seconds.')
-        return self.classifier(embeddings)
-
-    def predict(self, dataset:Rna16SDataset):
+    def predict(self, dataset:Rna16SEmbeddingDataset, return_decoded_labels:bool=False) -> Tuple[List[int], List[float]]:
 
         self.eval() # Put the model in evaluation mode so that nothing weird happens with the weights. 
         
-        labels = None
-        dataloader = DataLoader(dataset, batch_size=len(dataset)) 
-        assert len(dataloader) == 1, 'Rns16SClassifier: The DataLoader should only have one batch when batch_size=len(Dataset).'
-        for batch in dataloader:
+        labels, labels_decoded = None, None
+        predictions = []
+        dataloader = DataLoader(dataset, batch_size=len(dataset), shuffle=False) 
+        assert len(dataloader) == 1, 'Rna16SClassifier: The DataLoader should only have one batch when batch_size=len(Dataset).'
+        
+        for batch in dataloader: # Should only be one batch. 
             if 'label' in batch:
-                labels = batch.pop('label')
+                labels = batch.pop('label').tolist()
+                labels_decoded = batch.pop('label_decoded')
             outputs = self(**batch)
-            predictions = torch.nn.functional.softmax(outputs, dim=1).argmax(dim=1).cpu().numpy()
+            predictions = torch.nn.functional.softmax(outputs, dim=1).argmax(dim=1).cpu().numpy().tolist()
+            # predictions.append(torch.nn.functional.softmax(outputs, dim=1).argmax(dim=1).cpu().numpy())
 
         # Order tuple output to match order of arguments for balanced_accuracy_score function. 
         # TRUE LABELS GO FIRST. I really need to stop switching them. 
-        return labels.tolist(), predictions.tolist()
+        if (not return_decoded_labels):
+            return labels, predictions
+        else:
+            return labels, predictions, labels_decoded
 
-
-    def fit(self, train_dataset:Rna16SDataset, val_dataset:Rna16SDataset=None, batch_size:int=16, n_epochs:int=200):
+    def fit(self, train_dataset:Rna16SEmbeddingDataset, val_dataset:Rna16SEmbeddingDataset=None, batch_size:int=16, n_epochs:int=200):
         self.train() # Put the model in training mode. 
 
         dataloader = DataLoader(train_dataset, batch_size=batch_size)  # Initialize a DataLoader with the training Dataset. 
@@ -123,15 +196,12 @@ class Rna16SClassifier(torch.nn.Module):
         best_model_weights = None
         best_epoch = 0
         # for epoch in tqdm(range(n_epochs), desc='Rns16SClassifier.fit'):
-        for epoch in range(n_epochs):
-            for batch in tqdm(dataloader, total=len(dataloader), desc=f'Rna16SClassifier.fit: Training classifier, epoch {epoch} of {n_epochs}.'):
-                labels = batch.pop('label').to(device)
-                batch = {k:v.to(device) for k, v in batch.items()} 
-
+        for epoch in tqdm(range(n_epochs), desc=f'Rna16SClassifier.fit'):
+            for batch in dataloader:
+                batch = {k:batch[k].to(device) for k in ['embedding', 'label']} 
                 self.optimizer.zero_grad()
-
                 outputs = self(**batch)
-                loss = self.loss_func(outputs, labels)
+                loss = self.loss_func(outputs, batch['label'])
                 loss.backward()
                 self.optimizer.step()
 
@@ -149,40 +219,13 @@ class Rna16SClassifier(torch.nn.Module):
 
     @classmethod
     def load(cls, path:str):
-        
-        genslm = rna16s_load_genslm() # Load the "base model."
-        instance = cls(genslm) # Use the default hidden_dim and n_classes. 
+        instance = cls()
         instance.to(device)
         # Load the trained model weights located at the path. 
         instance.load_state_dict(torch.load(path, device))
 
         return instance
 
-
-def rna16s_load_datasets(n:int=None) -> Tuple[Rna16SDataset, Rna16SDataset]:
-    # Load the training data and split it into training and validation datasets. 
-    train_df = pd.read_csv(RNA16S_TRAIN_PATH)
-    if n is not None:
-        train_df = train_df.iloc[:n]
-    # train_df, val_df = sklearn.model_selection.train_test_split(train_df, test_size=0.1, random_state=42)
-    # Load the testing data from a seperate file. 
-    # test_df = pd.read_csv(os.path.join(RNA16S_PATH, 'testing_data.csv'))
-    val_df = pd.read_csv(RNA16S_VAL_PATH)
-    test_df = pd.read_csv(RNA16S_TEST_PATH)
-
-    # Map labels to integers. Fit the encoder using the training labels. 
-    encoder = LabelEncoder()
-    encoder.fit(train_df['label'].values)
-
-    datasets = {}
-    # for dataset_label, df in zip(['training', 'validation', 'testing'], [train_df, val_df, test_df]):
-    for dataset_label, df in zip(['training', 'validation', 'testing'], [train_df, val_df, test_df]):
-        seqs = [seq.upper() for seq in df['seq']]
-        labels = encoder.transform(df['label'].tolist()) # Convert the labels to integers using the fitted encoder.
-        dataset = Rna16SDataset(seqs, labels)
-        datasets[dataset_label] = dataset 
-
-    return datasets, encoder
 
 
     

@@ -14,15 +14,27 @@ RNA16S_ENCODER_PATH = os.path.join(MODELS_PATH, 'rna16s_encoder.joblib')
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch-size', default=16, type=int, help='The size of the batches to use for model training.')
-    parser.add_argument('--n-epochs', default=100, type=int, help='The number of epochs to train the model for.')
+    parser.add_argument('--n-epochs', default=200, type=int, help='The number of epochs to train the model for.')
     args = parser.parse_args()
 
-    # Load the training, testing, and validation datasets. 
-    datasets, encoder = rna16s_load_datasets()
+    encoder = rna16s_get_encoder()
+
+    # Check to see if the embedding path exists. Only generate the embeddings if not. 
+    emb_val_path = os.path.join(RNA16S_PATH, 'rna16s_emb_val.csv')
+    emb_train_path = os.path.join(RNA16S_PATH, 'rna16s_emb_train.csv')
+
+    if (not os.path.exists(emb_val_path)) or (not os.path.exists(emb_train_path)):
+        # Load the sequences in to the sequence dataset. 
+       rna16s_embed(os.path.join(RNA16S_PATH, 'rna16s_val.csv'), emb_val_path, encoder=encoder) 
+       rna16s_embed(os.path.join(RNA16S_PATH, 'rna16s_train.csv'), emb_train_path, encoder=encoder)
+
+    # Load the training and validation datasets. 
+    train_dataset = Rna16SEmbeddingDataset(emb_train_path, encoder)
+    val_dataset = Rna16SEmbeddingDataset(emb_val_path, encoder)
 
     # Instantiate a classifier. 
     model = Rna16SClassifier()
-    train_accs, val_accs, best_epoch = model.fit(datasets['training'], val_dataset=datasets['validation'], batch_size=args.batch_size, n_epochs=args.n_epochs)
+    train_accs, val_accs, best_epoch = model.fit(train_dataset, val_dataset=val_dataset, batch_size=args.batch_size, n_epochs=args.n_epochs)
 
     # Add some information about the model training to a dictionary. 
     results = dict()
