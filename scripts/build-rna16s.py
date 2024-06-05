@@ -121,6 +121,7 @@ if __name__ == '__main__':
     metadata_df.label = metadata_df.label.replace(label_map)
 
     fasta_df = load_fasta(RNA16S_V3_V4_REGIONS_PATH)
+    # Addressing the data leakage problem.
     fasta_df['id'] = [s.split('.')[0] for s in fasta_df.header.tolist()]
     # Merge the sequences and metadata, and drop all duplicates. 
     fasta_df = fasta_df.set_index('id').join(metadata_df.set_index('id')).dropna()

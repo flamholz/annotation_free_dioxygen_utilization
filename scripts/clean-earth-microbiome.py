@@ -102,7 +102,7 @@ def filter_data(df:pd.DataFrame) -> pd.DataFrame:
     '''
     # Filter out low-completeness MAGs.
     df = df[df.completeness > 50]
-    print('filter_data:', len(df), 'genomes with nore than 50 percent completeness.')
+    print('filter_data:', len(df), 'genomes with more than 50 percent completeness.')
     
     # Filter out entries from samples with fewer than ten MAGs
     counts = df.groupby('metagenome_id').apply(len, include_groups=False)
