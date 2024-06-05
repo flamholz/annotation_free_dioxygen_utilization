@@ -75,8 +75,6 @@ def plot_configure_mpl(title_font_size:int=6.5, label_font_size:float=6.5,
     plt.rc('mathtext', fontset='stixsans', sf='sans')
 
 
-
-
 # Pretty names for each feature type, for plotting. 
 PRETTY_NAMES = {'KO':'Gene families', 'embedding.geneset.oxygen':'Oxygen gene set', 'chemical':'Chemical features'}
 PRETTY_NAMES['aa_1mer'] = 'Amino acid counts'
@@ -89,7 +87,7 @@ PRETTY_NAMES['cds_1mer'] = 'CDS nucleotide counts'
 PRETTY_NAMES['cds_2mer'] = 'CDS nucleotide dimers'
 PRETTY_NAMES['cds_3mer'] = 'CDS nucleotide trimers'
 PRETTY_NAMES.update({'embedding.genome':'Genome embedding'})
-PRETTY_NAMES.update({'metadata':'Metadata', 'metadata.oxygen_genes':'Oxygen gene set', 'metadata.pct_oxygen_genes':'Percentage oxygen genes', 'metadata.number_of_genes':'Number of genes'})
+PRETTY_NAMES.update({'metadata':'Metadata', 'metadata.oxygen_genes':'Number of oxygen genes', 'metadata.pct_oxygen_genes':'Percentage oxygen genes', 'metadata.number_of_genes':'Number of genes'})
 PRETTY_NAMES.update({f'nt_{i}mer':f'Nucleotide {i}-mer' for i in range(4, 6)})
 PRETTY_NAMES.update({f'cds_{i}mer':f'CDS nucleotide {i}-mer' for i in range(4, 6)})
 
