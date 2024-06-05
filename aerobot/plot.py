@@ -230,7 +230,7 @@ def plot_confusion_matrix(results:Dict[str, Dict], ax:plt.Axes=None) -> NoReturn
     ax.set_ylabel('true label')
     sns.heatmap(confusion_matrix, ax=ax, cmap=plot_color_map(), annot=True, fmt='.1%', cbar=False, linecolor='k', linewidths=0.2)
     # Rotate the tick labels on the x-axis of each subplot.
-    ax.set_xticks(np.arange(len(classes)) + 0.5, classes, rotation=45)
+    ax.set_xticks(np.arange(len(classes)) + 0.5, classes, rotation=45, ha='right')
     ax.set_yticks(np.arange(len(classes)) + 0.5, classes, rotation=0)
 
 
