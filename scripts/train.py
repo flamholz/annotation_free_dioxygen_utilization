@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import tqdm
 import os
-from aerobot.io import DATA_PATH, MODELS_PATH, RESULTS_PATH, FEATURE_TYPES, FEATURE_SUBTYPES, save_results_dict, read_params
+from aerobot.io import DATA_PATH, MODELS_PATH, RESULTS_PATH, FEATURE_TYPES, save_results_dict, read_params
 from aerobot.dataset import dataset_load_training_validation
 from aerobot.models import GeneralClassifier, evaluate, Nonlinear
 from sklearn.linear_model import LogisticRegression
@@ -28,15 +28,13 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('model-class', choices=['nonlinear', 'logistic'], help='The type of model to train.')
-    parser.add_argument('--feature-type', '-f', type=str, default=None, nargs='+', choices=FEATURE_SUBTYPES + FEATURE_TYPES, help='The feature type on which to train.')
+    parser.add_argument('--feature-type', '-f', type=str, default=None, nargs='+', choices=FEATURE_TYPES, help='The feature type on which to train.')
     parser.add_argument('--binary', default=0, type=bool, help='Whether to train on the binary classification task. If False, then ternary classification is performed.')
     # Optional parameters for Nonlinear classifiers. 
-    parser.add_argument('--n-epochs', default=100, type=int, help='The maximum number of epochs to train the Nonlinear classifier.') 
+    parser.add_argument('--n-epochs', default=200, type=int, help='The maximum number of epochs to train the Nonlinear classifier.') 
     parser.add_argument('--lr', default=0.0001, type=float, help='The learning rate for training the Nonlinear classifier.') 
     parser.add_argument('--weight-decay', default=0.01, type=float, help='The L2 regularization penalty to be passed into the Adam optimizer of the Nonlinear classifier.') 
-    parser.add_argument('--batch-size', default=16, type=int, help='The size of the batches for Nonlinear classifier training') 
-    parser.add_argument('--alpha', default=10, type=int, help='The early stopping threshold for the Nonlinear classifier.') 
-    parser.add_argument('--early-stopping', default=0, type=bool, help='Whether or not to use early stopping during Nonlinear classifier training.') 
+    parser.add_argument('--batch-size', default=16, type=int, help='The size of the batches for Nonlinear classifier training')  
     parser.add_argument('--hidden-dim', default=512, type=int, help='The number of nodes in the second linear layer of the Nonlinear classifier.')
     # Optional parameters for LogisticRegression classifiers.
     parser.add_argument('--C', default=100, type=float, help='Inverse of regularization strength for the LogisticRegression classifier' ) 
@@ -47,7 +45,7 @@ if __name__ == '__main__':
 
     t1 = time.perf_counter()
 
-    feature_types = FEATURE_SUBTYPES + FEATURE_TYPES if args.feature_type is None else args.feature_type
+    feature_types = FEATURE_TYPES if args.feature_type is None else args.feature_type
 
     for feature_type in feature_types:
         # Load the cleaned-up training and validation datasets.

@@ -10,20 +10,21 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 import pickle
 
-CWD, _ = os.path.split(os.path.abspath(__file__))
-DATA_PATH = os.path.join(CWD, '..', 'data')
-MODELS_PATH = os.path.join(CWD, '..', 'models')
-SCRIPTS_PATH = os.path.join(CWD, '..', 'scripts')
-FIGURES_PATH = os.path.join(CWD, '..', 'figures')
-RESULTS_PATH = os.path.join(CWD, '..', 'results')
+cwd, _ = os.path.split(os.path.abspath(__file__))
+DATA_PATH = os.path.join(cwd, '..', 'data')
+MODELS_PATH = os.path.join(cwd, '..', 'models')
+SCRIPTS_PATH = os.path.join(cwd, '..', 'scripts')
+FIGURES_PATH = os.path.join(cwd, '..', 'figures')
+RESULTS_PATH = os.path.join(cwd, '..', 'results')
 
-FEATURE_TYPES = ['KO', 'embedding.genome', 'embedding.geneset.oxygen', 'metadata', 'chemical'] 
-FEATURE_TYPES += [f'nt_{i}mer' for i in range(1, 6)]
+FEATURE_TYPES = ['KO', 'embedding.genome', 'embedding.geneset.oxygen', 'chemical', 'KO.geneset.terminal_oxidase'] 
+FEATURE_TYPES += ['metadata.number_of_genes', 'metadata.oxygen_genes', 'metadata.pct_oxygen_genes']
+FEATURE_TYPES += [f'nt_{i}mer' for i in range(1, 5)]
 FEATURE_TYPES += [f'cds_{i}mer' for i in range(1, 6)]
 FEATURE_TYPES += [f'aa_{i}mer' for i in range(1, 4)]
 
+
 # Some feature types are stored as metadata fields.
-FEATURE_SUBTYPES = ['metadata.number_of_genes', 'metadata.oxygen_genes', 'metadata.pct_oxygen_genes']
 
 
 class NumpyEncoder(json.JSONEncoder):

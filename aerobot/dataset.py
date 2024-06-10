@@ -6,8 +6,7 @@ import os
 import subprocess as sb
 import wget
 from typing import Dict, NoReturn, Tuple
-from aerobot.chemical import chemical_get_features
-from aerobot.io import load_hdf, FEATURE_SUBTYPES, FEATURE_TYPES, DATA_PATH
+from aerobot.io import load_hdf, FEATURE_TYPES, DATA_PATH
 import json
 
 # TODO: Should constant-sum scaling happen before or after removal of the X amino acids? And before or after we
@@ -110,15 +109,10 @@ def dataset_load(path:str, feature_type:str=None, normalize:bool=True) -> Dict:
     :return: A dictionary with keys 'features' and 'labels' containing the feature data and metadata.
     '''
     subtype = None
-    assert feature_type in FEATURE_TYPES + FEATURE_SUBTYPES + [None], f'dataset_load: Input feature type {feature_type} is invalid.'
-    # Special case if the feature_type is a "subtype", which is stored as a column in the metadata.
-    if (feature_type in FEATURE_SUBTYPES) and (feature_type is not None):
-        feature_type, subtype = feature_type.split('.')
+    assert feature_type in FEATURE_TYPES + [None], f'dataset_load: Input feature type {feature_type} is invalid.'
         
     dataset = load_hdf(path, feature_type=feature_type) # Read from the HDF file.
-    if subtype is not None: # If a feature subtype is given, extract the information from the metadata.
-        dataset['features'] = dataset['features'][[subtype]]
-
+    dataset['features'] = None if dataset['features'] is None else dataset['features'].astype(np.float32)
     # If the normalize option is specified, and the feature type is "normalizable," then normalize the rows.
     is_normalizable_feature_type = (feature_type is not None) and (('aa_' in feature_type) or ('nt_' in feature_type) or ('cds_' in feature_type))
     if normalize and is_normalizable_feature_type:
@@ -139,7 +133,7 @@ def dataset_get_features(dataset:Dict[str, pd.DataFrame]) -> np.ndarray:
     return features.to_numpy()
 
 
-def dataset_load_feature_order(feature_type:str, drop_x:bool=True, drop_na:bool=True) -> np.ndarray:
+def dataset_load_feature_order(feature_type:str) -> np.ndarray:
     '''Load the columns ordering for a particular feature type. This function returns columns ordered
     in the same way as the training dataset, which is used as a reference throughout the project.
 
@@ -149,9 +143,7 @@ def dataset_load_feature_order(feature_type:str, drop_x:bool=True, drop_na:bool=
     :return: A numpy array of features, which are the columns of the features DataFrame for the input feature type. 
     '''
     dataset = dataset_load(os.path.join(DATA_PATH, 'updated_training_datasets.h5'), feature_type=feature_type) # Load the training dataset. 
-    if drop_na: # Drop any feature columns which contain NaNs. 
-        dataset['features'] = dataset['features'].dropna(axis=1)
-    if ('aa_' in feature_type) and (drop_x): # Remove all unknown amino acids from the feature set.
+    if ('aa_' in feature_type): # Remove all unknown amino acids from the feature set.
         dataset['features'] = dataset['features'][[f for f in dataset['features'].columns if 'X' not in f]]
     return dataset_get_features(dataset)
 
@@ -196,8 +188,8 @@ def dataset_clean_features(df:pd.DataFrame, feature_type:str='aa_3mer'):
             df[f] = np.zeros(len(df))
 
     if missing > 0:
-        pass
-        # print('dataset_clean_features:', missing, feature_type, 'features are missing from the input data. Filled missing data with 0.')
+        print('dataset_clean_features:', missing, feature_type, 'features are missing from the input data. Filled missing data with 0.')
     
     df = df[feature_order] # Ensure the feature ordering is consistent. 
+    assert np.all(~df.isnull().values), 'dataset_clean_features: There should not be any null values in the DataFrame.'
     return df

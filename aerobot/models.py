@@ -21,7 +21,6 @@ else:
     device = torch.device('cpu')
 
 
-
 class Nonlinear(torch.nn.Module):
     '''Two-layer neural network for classification.'''
     def __init__(self, input_dim:int=None, 
@@ -41,9 +40,6 @@ class Nonlinear(torch.nn.Module):
         :param lr: The learning rate.
         :param n_epochs: The maximum number of epochs to train the classifier. 
         :param batch_size: The size of the batches for model training. 
-        :param alpha: The early stopping threshold. Early stopping is triggered when the generalization loss exceeds this threshold,
-            and early_stopping=True.
-        :param early_stopping: Whether or not to use early stopping during training. 
         :param n_classes: The number of classes. This is the output dimension of the second linear layer. 
         '''        
         torch.manual_seed(42) # Seed the RNG for reproducibility.
@@ -60,7 +56,7 @@ class Nonlinear(torch.nn.Module):
         self.encoder = sklearn.preprocessing.OneHotEncoder(handle_unknown='error', sparse_output=False)
         self.lr = lr
         self.alpha = alpha
-        self.early_stopping = early_stopping
+
         
         self.classifier = torch.nn.Sequential(
             torch.nn.Linear(input_dim, hidden_dim),
@@ -93,21 +89,6 @@ class Nonlinear(torch.nn.Module):
         '''A forward pass of the model.'''
         X = torch.FloatTensor(X).to(device) # Convert numpy array to Tensor. Make sure it is on the GPU, if available.
         return self.classifier(X)
-
-    def _early_stop(self, t:int):
-        '''The GL early-stopping criterion from https://page.mi.fu-berlin.de/prechelt/Biblio/stop_tricks1997.pdf.'''
-
-        if (not self.early_stopping) or (len(self.val_losses) == 0):
-            return False
-
-        def generalization_error():
-            '''Compute the generalization error using the best validation loss obtained so far and the current
-            validation loss.'''
-            min_val_loss = min(self.val_losses) # Get the smallest validation loss from the stored history.
-            curr_val_loss = self.val_losses[-1] # Get the most recent validation loss from the stored history. 
-            return 100 * ((curr_val_loss / min_val_loss) - 1)
-
-        return generalization_error() > self.alpha
         
     def balanced_accuracy(self, X:np.ndarray, y:np.ndarray):
         y_pred = self.predict(X)
@@ -138,6 +119,9 @@ class Nonlinear(torch.nn.Module):
         self.classes_ = self.encoder.categories_[0] # Extract categories from the one-hot encoder. 
         self.weight = torch.FloatTensor([1 / (np.sum(y == c) / len(y)) for c in self.classes_]) # Compute loss weights as the inverse frequency.
 
+        self.best_model_weight = None 
+        self.best_val_acc = 0
+
         self.train() # Model in train mode.  
         for epoch in tqdm(range(self.n_epochs), desc='Training NonlinearClassifier...', disable=not verbose):
             X_trans, y_trans = Nonlinear.shuffle(X, y_enc) # Shuffle the transformed data. 
@@ -151,15 +135,11 @@ class Nonlinear(torch.nn.Module):
               
             self.train_losses.append(self.loss_func(self(X), torch.FloatTensor(y_enc), weight=self.weight).item()) # Store the average weighted train losses over the epoch. 
             self.train_accs.append(self.balanced_accuracy(X, y)) # Store model accuracy on the training dataset. 
+            
             if (X_val is not None) and (y_val is not None):
                 self.val_losses.append(self.loss_func(self(X_val), torch.FloatTensor(y_val_enc)).item()) # Store the unweighted loss on the validation data.
                 self.val_accs.append(self.balanced_accuracy(X_val, y_val)) # Store model accuracy on the validation dataset. 
 
-            if self._early_stop(epoch):
-                # self.classifier.load_state_dict(previous_state_dict) # Load the previous state dict.
-                self.n_epochs = epoch # Overwrite the previously-set number of epochs. 
-                if verbose: print(f'NonlinearClassifier.fit: Terminated training at epoch {epoch}.')
-                break
 
             self.train() # Make sure to put the model back into training mode, as the predict function switches to evaluation mode. 
 

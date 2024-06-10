@@ -2,8 +2,7 @@
 and validation sets with no repeated species across the two sets. '''
 import numpy as np
 import pandas as pd
-from aerobot.io import save_hdf, DATA_PATH, FEATURE_TYPES, FEATURE_SUBTYPES
-from aerobot.chemical import chemical_get_features
+from aerobot.io import save_hdf, DATA_PATH, FEATURE_TYPES
 import os
 import subprocess
 import wget
@@ -14,35 +13,145 @@ import warnings
 warnings.filterwarnings('ignore', category=pd.io.pytables.PerformanceWarning)
 warnings.filterwarnings('ignore', category=tables.NaturalNameWarning)
 
-# TODO: Put the key and filename maps into a CSV file. 
-# TODO: Possibly add the code for reading and writing maps to the io.py file?
+CHEMICAL_INPUTS = ['aa_1mer', 'cds_1mer', 'aa_1mer', 'metadata', 'nt_1mer']
+CANONICAL_NTS = ['A', 'C', 'G', 'T']
+GC_NTS = ['G', 'C']
+
+RNA_NOSC_DF = pd.read_csv(os.path.join(DATA_PATH, 'nt_nosc.csv'))
+RNA_NOSC_DF = RNA_NOSC_DF[RNA_NOSC_DF.type == 'RNA'].set_index('letter_code')
+RNA_NC = RNA_NOSC_DF.NC
+RNA_ZC = RNA_NOSC_DF.NOSC
+CANONICAL_NTS_ALL = RNA_NOSC_DF.index.unique().tolist() # Includes DNA and RNA names
+
+AA_NOSC_DF = pd.read_csv(os.path.join(DATA_PATH, 'aa_nosc.csv'), index_col=0)
+AA_NC = AA_NOSC_DF.NC
+AA_ZC = AA_NOSC_DF.NOSC
+CANONICAL_AAS = AA_NOSC_DF.index.tolist()
+
+TERMINAL_OXIDASE_KOS = pd.read_csv(os.path.join(DATA_PATH, 'terminal_oxidase_kos.csv')).ko.unique()
+# KOS = pd.read_csv(os.path.join(DATA_PATH, 'kos.csv')) # The union of KO groups in the Madin and Jablonska data.
 
 
-def load_data_madin(path:str=os.path.join(DATA_PATH, 'madin/madin.h5'), feature_type:str=None) -> Dict[str, pd.DataFrame]:
+def get_chemical_rna_features(nt_1mer_df:pd.DataFrame) -> pd.Series:
+    '''Calculate chemical features of the RNA coding sequences. Calculates the formal 
+    C oxidation state of mRNAs, as well as the C, N, O and S content. 
+
+    :param nt_1mer_df: A DataFrame containing the counts of single nucleotides, either RNA or DNA. Assumed to single stranded.
+    :return: A pd.Series containing the formal C oxidation state of the RNA coding sequences.
+    '''
+    my_nts = sorted(set(nt_1mer_df.columns).intersection(CANONICAL_NTS_ALL))
+    canonical_data = nt_1mer_df[my_nts]
+    NC_total = (canonical_data @ RNA_NC[my_nts])
+    Ne_total = (canonical_data @ (RNA_ZC[my_nts] * RNA_NC[my_nts]))
+    mean_cds_zc = Ne_total / NC_total
+    mean_cds_zc.name = 'cds_nt_zc'
+    cols = [mean_cds_zc]
+    for elt in 'CNO':
+        col = 'N{0}'.format(elt)
+        ns = RNA_NOSC_DF[col]
+        totals = (canonical_data @ ns[my_nts])
+        means = totals / canonical_data.sum(axis=1)
+        means.name = 'cds_nt_{0}'.format(col)
+        cols.append(means)
+    return pd.concat(cols, axis=1)
+
+
+def get_chemical_gc_content(nt_1mer_df:pd.DataFrame) -> pd.Series:
+    '''Calculate the GC content of the canonical nucleotides.
+
+    :param nt_1mer_df: A DataFrame containing the counts of single nucleotides, either RNA or DNA. Assumed to single stranded.
+    :return: A pd.Series containing the GC content of each genome.
+    '''
+    canonical_data = nt_1mer_df[CANONICAL_NTS]
+    gc_content = canonical_data[GC_NTS].sum(axis=1) / canonical_data.sum(axis=1)
+    gc_content.name = 'gc_content'
+    return gc_content
+
+
+def get_chemical_aa_features(aa_1mer_df:pd.DataFrame) -> pd.Series:
+    '''Calculate chemical features of the coding sequences.Calculates the formal C oxidation state 
+    of mRNAs, as well as the C, N, O and S content. 
+
+    :param aa_1mer_df: A DataFrame containing the counts of single amino acids.
+    :return: A pd.Series containing the formal C oxidation state.
+    '''
+    aas = sorted(set(aa_1mer_df.columns).intersection(CANONICAL_AAS))
+    canonical_data = aa_1mer_df[aas]
+    NC_total = (canonical_data @ AA_NC[aas])
+    Ne_total = (canonical_data @ (AA_ZC[aas] * AA_NC[aas]))
+    mean_cds_zc = Ne_total / NC_total
+    mean_cds_zc.name = 'cds_aa_zc'
+    cols = [mean_cds_zc]
+    for elt in 'CNOS':
+        col = 'N{0}'.format(elt)
+        ns = AA_NOSC_DF[col]
+        totals = (canonical_data @ ns[aas])
+        means = totals / canonical_data.sum(axis=1)
+        means.name = 'cds_aa_{0}'.format(col)
+        cols.append(means)
+    return pd.concat(cols, axis=1)
+
+
+def get_chemical_features(metadata_df:pd.DataFrame=None, cds_1mer_df:pd.DataFrame=None, aa_1mer_df:pd.DataFrame=None, nt_1mer_df=None) -> pd.DataFrame:
+    '''Compute chemical features using other feature DataFrames and the metadata.
+
+    :param metadata_df: DataFrame containing the gene metadata.
+    :param nt_1mer_df: DataFrame containing the nt_1mer feature data.
+    :param aa_1mer_df: DataFrame containing the aa_1mer feature data.
+    :param cds_1mer_df: DataFrame containing the cds_1mer feature data.
+    :return: A DataFrame containing the chemical feature data.
+    '''
+    n_genes = metadata_df.drop_duplicates()['number_of_genes']
+    gc_content = get_chemical_gc_content(nt_1mer_df)
+    aa_features = get_chemical_aa_features(aa_1mer_df)
+    rna_features = get_chemical_rna_features(cds_1mer_df)
+
+    return pd.concat([gc_content, n_genes, aa_features, rna_features], axis=1).dropna(axis=0)
+
+
+def load_data_jablonska(feature_type:str, path:str=os.path.join(DATA_PATH, 'jablonska/'), ):
+    df = pd.read_csv(os.path.join(path, f'jablonska_{feature_type}.csv'), index_col=0)
+    if feature_type == 'metadata': # For some reason, the genome doesn't get set as the index here.
+        df = df.set_index('genome')
+    return df
+
+
+def load_data_madin(feature_type:str, path:str=os.path.join(DATA_PATH, 'madin/madin.h5')):
+    # Create a dictionary mapping each feature type to a key in the HD5 file.
+    key_map = {f:f for f in FEATURE_TYPES} # Most keys are the same as the feature type names.
+    key_map.update({'embedding.genome':'WGE', 'embedding.geneset.oxygen':'OGSE', 'metadata':'AF'})
+    key_map.update({'labels':'labels'})
+    return pd.read_hdf(path, key=key_map[feature_type])
+
+
+def load_data(feature_type:str=None, source:str='madin') -> Dict[str, pd.DataFrame]:
     '''Load the training data from Madin et. al. This data is stored in an H5 file, as it is too large to store in 
     separate CSVs. 
 
     :param path: The path to the HD5 file containing the training data.
     :param feature_type: The feature type to load.
     :return: A dictionary containing the feature data and corresponding labels.'''
-    assert feature_type in FEATURE_TYPES, f'load_training_data: feature_type must be one of {FEATURE_TYPES}'
-    
     output = dict()
-    print(path)
-    output['labels'] = pd.read_hdf(path, key='labels')
-    if feature_type == 'chemical':
-        kwargs = dict()
-        for f in ['aa_1mer', 'cds_1mer', 'aa_1mer', 'metadata']:
-            df = pd.read_hdf(path, key='nt_1mer')
-            kwargs.update({f + '_df':df})
-        features = chemical_get_features(**kwargs)
-    else:
-        features = pd.read_hdf(path, key=key_map[feature_type])
-    if feature_type == 'metadata': # NOTE: This is ported over from the build_datasets script.
-        # Calculate the percentage of oxygen genes for the combined dataset and and add it to the dataset
-        features['pct_oxygen_genes'] = features['oxygen_genes'] / features['number_of_genes']
+    load_data_func = load_data_jablonska if source == 'jablonska' else load_data_madin
 
+    output['labels'] = load_data_func('labels')
+
+    if feature_type == 'chemical': # There was a bug here where I was repeatedly loading nt_1mer... would this have thrown an error?
+        # kwargs = {f + '_df':pd.read_hdf(path, key=f) for f in CHEMICAL_INPUTS} 
+        kwargs = {f + '_df':load_data_func(f) for f in CHEMICAL_INPUTS} 
+        features = get_chemical_features(**kwargs)
+    elif feature_type == 'KO.geneset.terminal_oxidase':
+        ko_df = load_data_func('KO')
+        features = ko_df[[ko for ko in TERMINAL_OXIDASE_KOS if ko in ko_df.columns]]
+    elif 'metadata' in feature_type:
+        metadata_df = load_data_func('metadata')
+        # Calculate the percentage of oxygen genes for the combined dataset and and add it to the dataset
+        metadata_df['pct_oxygen_genes'] = metadata_df['oxygen_genes'] / metadata_df['number_of_genes']
+        features = metadata_df[[feature_type.split('.')[-1]]]
+    else:
+        features = load_data_func(feature_type)
     output['features'] = features # Add the features to the output dictionary. 
+
     return output
 
 
@@ -73,40 +182,12 @@ def merge_datasets(training_dataset:Dict[str, pd.DataFrame], validation_dataset:
     validation_features, validation_labels = validation_dataset['features'], validation_dataset['labels'].drop(columns=['annotation_file', 'embedding_file'])
 
     # Combine the datasets, ensuring that the features columns which do not overlap are removed (with the join='inner')
-    features = pd.concat([training_features, validation_features], axis=0, join='inner')
+    # features = pd.concat([training_features, validation_features], axis=0, join='inner')
+    features = pd.concat([training_features, validation_features], axis=0, join='outer')
+    features = features.fillna(0)
     labels = pd.concat([training_labels, validation_labels], axis=0, join='outer')
 
     return {'features':features, 'labels':labels}
-
-
-def autofill_taxonomy(labels:pd.DataFrame) -> pd.DataFrame:
-
-    # Redefine ranks from lowest-level to highest-level. 
-    levels = ['Species', 'Genus', 'Family', 'Order', 'Class', 'Phylum', 'Kingdom']
-
-    # I noticed that no entries have no assigned species, but some do not have an assigned genus. 
-    # Decided to autofill genus with the species string. I checked to make sure that every non-NaN genus is 
-    # consistent with the genus in the species string, so this should be OK.
-    assert np.all(~labels.Species.isnull()), 'autofill_taxonomy: Some entries have no assigned Species'
-    labels['Genus'] = labels['Species'].apply(lambda s : s.split(' ')[0])
-    
-    # tax, n_autofilled = [], 0
-    # for genus, df in labels.groupby('Genus', dropna=False):
-    #     # genus_idxs = np.where(labels.Genus.values == g)[0]
-    #     n_init_unclassified = df[levels].isnull().values.sum()
-    #     df[levels] = df[levels].fillna(method='ffill')
-    #     n_final_unclassified = df[levels].isnull().values.sum()
-    #     n_autofilled += n_init_unclassified - n_final_unclassified
-    #     tax.append(df)
-    
-    # print(f'\tautofill_taxonomy: Autofilled {n_autofilled} taxonomy entries.')
-    # tax = pd.concat(tax, axis=0)
-    # assert np.all(np.sort(tax.index.values) == np.sort(labels.index.values)), 'autofill_taxonomy: The indices in the taxonomy DataFrame do not match the labels DataFrame.'
-    # labels, tax = labels.align(tax, join='inner', axis=0) # Align the indices.
-    # labels = labels.combine_first(tax)
-
-    return labels
-
 
 
 def fill_missing_taxonomy(labels:pd.DataFrame) -> pd.DataFrame:
@@ -124,8 +205,12 @@ def fill_missing_taxonomy(labels:pd.DataFrame) -> pd.DataFrame:
     tax.columns = levels # Label the taxonomy columns. 
     # Use the tax DataFrame to fill in missing taxonomy values in the labels DataFrame
     labels = labels.replace('no rank', np.nan).combine_first(tax)
-    # Make sure everything at least has a class label. Maybe check for other taxonomies while we are at it.
-    labels = autofill_taxonomy(labels)
+    
+    # I noticed that no entries have no assigned species, but some do not have an assigned genus. 
+    # Decided to autofill genus with the species string. I checked to make sure that every non-NaN genus is 
+    # consistent with the genus in the species string, so this should be OK.
+    assert np.all(~labels.Species.isnull()), 'autofill_taxonomy: Some entries have no assigned Species'
+    labels['Genus'] = labels['Species'].apply(lambda s : s.split(' ')[0])
 
     for level in levels[::-1]: # Make sure all taxonomy has been populated.
         n_unclassified = np.sum(labels[level].isnull())
@@ -135,61 +220,6 @@ def fill_missing_taxonomy(labels:pd.DataFrame) -> pd.DataFrame:
     # labels[levels] = labels[levels].fillna('no rank') # Fill any NaNs with a "no rank" string for consistency.
     labels[levels] = labels[levels].fillna('no rank') # Fill in all remaining blank taxonomies with 'no rank'
     return labels
-
-
-def load_data_jablonska(path:str=os.path.join(DATA_PATH, 'jablonska/'), feature_type:str=None) -> Dict[str, pd.DataFrame]:
-    '''Load the data from Jablonska et. al.
-
-    :param path: The path to the directory containing the validation data files.
-    :param feature_type: The feature type to load.
-    :return: A dictionary containing the feature data and corresponding labels.'''
-    assert feature_type in FEATURE_TYPES, f'load_validation_data: feature_type must be one of {FEATURE_TYPES}'
-    
-    output = dict()
-    labels = pd.read_csv(os.path.join(path, 'jablonska_labels.csv'), index_col=0).rename(columns={'Oder':'Order'}) # Fix a typo in one of the columns. 
-    output['labels'] = labels # Add the DataFrame to the output. 
-
-    if feature_type == 'chemical':
-        kwargs = dict()
-        for f in ['aa_1mer', 'cds_1mer', 'aa_1mer', 'metadata']:
-            df = pd.read_csv(os.path.join(path, f'jablonska_{f}.csv'), index_col=0)
-            kwargs.update({f + '_df':df})
-        features = chemical_get_features(**kwargs)
-    else:
-        features = pd.read_csv(os.path.join(path, f'jablonska_{feature_type}.csv'), index_col=0)
-        # If the feature type is one of the following, fill 0 values with NaNs.
-        if feature_type in ['KO', 'embedding.genome', 'embedding.geneset.oxygen']:
-            features.fillna(0, inplace=True)
-        if feature_type == 'metadata':
-            features.set_index('genome', inplace=True)
-            # Calculate the percentage of oxygen genes for the combined dataset and and add it to the dataset
-            features['pct_oxygen_genes'] = features['oxygen_genes'] / features['number_of_genes']
-        if feature_type.startswith('nt_'):
-            # Remove text after the '.' character in the index for nt feature types.
-            features.index = [i.split('.')[0] for i in features.index]
-
-    output['features'] = features # Add the features to the output dictionary. 
-    return output
-
-
-# def download_data(dir_path:str=os.path.join(DATA_PATH, 'train/')) -> NoReturn:
-#     '''Download the training data from Google Cloud.
-    
-#     :param dir_path: The directory into which the training data will be downloaded.
-#     '''
-#     zip_filename = 'training_data.tar.gz' # TODO: Does this contain the training data only?
-#     zip_file_path = os.path.join(dir_path, zip_filename)
-#     h5_filename = os.path.join(dir_path, 'training_data.h5')
-#     # Check to make sure the data has not already been downloaded.
-#     if not os.path.exists(os.path.join(dir_path, zip_filename)):
-#         print('Downloading data from Google Cloud bucket...')
-#         url = f'https://storage.googleapis.com/microbe-data/aerobot/{zip_filename}'
-#         wget.download(url, dir_path)
-#         print('Download complete.')
-#     # Check to make sure the data has not already been extracted.
-#     if not os.path.exists(os.path.join(dir_path, h5_filename)):
-#         print('Extracting feature data...')
-#         subprocess.call(f'tar -xvf {os.path.join(dir_path, zip_filename)} --directory {dir_path}', shell=True)
 
 
 def remove_duplicates(data:pd.DataFrame) -> Tuple[pd.DataFrame, np.ndarray, np.ndarray]:
@@ -230,7 +260,7 @@ def training_validation_split(all_datasets:Dict[str, pd.DataFrame], random_seed:
     '''
     labels = all_datasets['labels'] # Get the labels out of the dictionary.
     # Group IDs by phylogenetic class. Convert to a dictionary mapping class to a list of indices.
-    ids_by_class = labels.groupby('Class').apply(lambda x: x.index.tolist()).to_dict()
+    ids_by_class = labels.groupby('Class').apply(lambda x: x.index.tolist(), include_groups=False).to_dict()
 
     # Now that the problem with the nt_1mer labels is fixed, there are no blank classes.
     # Some of the classes are 'no rank' or an empty string. Combine them under 'no rank'.
@@ -262,8 +292,8 @@ if __name__ == '__main__':
     for feature_type in FEATURE_TYPES:
         print(f'Building datasets for {feature_type}...')
         # Load in the datasets.
-        jablonska_dataset = load_data_jablonska(feature_type=feature_type)
-        madin_dataset = load_data_madin(feature_type=feature_type)
+        jablonska_dataset = load_data(feature_type, source='jablonska')
+        madin_dataset = load_data(feature_type, source='madin')
 
         print(f'\tMerging datasets...')
         dataset = merge_datasets(jablonska_dataset, madin_dataset)
@@ -274,7 +304,6 @@ if __name__ == '__main__':
 
         for key, data in dataset.items(): # key is "features" or "labels"
             data, duplicate_ids, removed_ids = remove_duplicates(data)
-            print(f'\tFound {len(duplicate_ids)} duplicates in {key} across training and validation datasets.')
             if len(removed_ids) > 0:
                 print(f'\tRemoved {len(removed_ids)} inconsistent entries in {key}.')
             dataset[key] = data
@@ -295,56 +324,6 @@ if __name__ == '__main__':
     save_hdf(all_datasets, os.path.join(DATA_PATH, 'updated_all_datasets.h5'))
     save_hdf(training_datasets, os.path.join(DATA_PATH, 'updated_training_datasets.h5'))
     save_hdf(validation_datasets, os.path.join(DATA_PATH, 'updated_validation_datasets.h5'))
-
-
-# pretty_feature_names = {
-#     'KO': 'all gene families',
-#     'embedding.genome': 'genome embedding',
-#     'metadata':None,
-#     'embedding.geneset.oxygen': '5 gene set',
-#     'metadata.number_of_genes': 'number of genes',
-#     'metadata.oxygen_genes': 'O$_2$ gene count',
-#     'metadata.pct_oxygen_genes': 'O$_2$ gene percent',
-#     'aa_1mer': 'amino acid counts',
-#     'aa_2mer': 'amino acid dimers',
-#     'aa_3mer': 'amino acid trimers',
-#     'chemical': 'chemical features',
-#     'nt_1mer': 'nucleotide counts',
-#     'nt_2mer': 'nucleotide dimers',
-#     'nt_3mer': 'nucleotide trimers',
-#     'nt_4mer': 'nucleotide 4-mers',
-#     'nt_5mer': 'nucleotide 5-mers',
-#     'cds_1mer': 'CDS nucleotide counts',
-#     'cds_2mer': 'CDS nucleotide dimers',
-#     'cds_3mer': 'CDS nucleotide trimers',
-#     'cds_4mer': 'CDS nucleotide 4-mers',
-#     'cds_5mer': 'CDS nucleotide 5-mers'}
-
-# filename_map = {'chemical':None,'KO': 'Jablonska_FS.KOCounts.07Feb2023.csv', 
-#                 'embedding.genome': 'Jablonska_FS.WGE.07Feb2023.csv', 
-#                 'embedding.geneset.oxygen': 'Jablonska_FS.OGSE.07Feb2023.csv',
-#                 'metadata': 'Jablonska_FS.AF.07Feb2023.csv'}
-# filename_map.update({f'aa_{i}mer':f'Jablonska_aa_{i}_mer.16Jul2023.csv' for i in range(1, 4)})
-# filename_map.update({f'nt_{i}mer':f'Jablonska.nucletoide_{i}mers.19Jul2023.csv' for i in range(1, 6)})
-# filename_map.update({f'cds_{i}mer':f'Jablonska_cds_{i}mer_features.csv' for i in range(1, 6)})
-
-# # Create a dictionary mapping each feature type to a key in the HD5 file.
-# key_map = {f:f for f in FEATURE_TYPES} # Most keys are the same as the feature type names.
-# key_map.update({'embedding.genome':'WGE', 'embedding.geneset.oxygen':'OGSE', 'metadata':'AF'})
-
-# df = {'feature_type':[], 'pretty_feature_name':[], 'hdf_key':[], 'filename':[]}
-# for feature_type in FEATURE_SUBTYPES + FEATURE_TYPES:
-#     df['feature_type'] += [feature_type] 
-#     if feature_type in FEATURE_SUBTYPES:
-#         df['hdf_key'] += [key_map['metadata']]
-#         df['filename'] += [filename_map['metadata']]
-#     else:
-#         df['hdf_key'] += [key_map[feature_type]]
-#         df['filename'] += [filename_map[feature_type]]
-#     df['pretty_feature_name'] += [pretty_feature_names[feature_type]]
-
-# df = pd.DataFrame(df).set_index('feature_type')
-# df.to_csv('feature_type_metadata.csv')
 
 
 
