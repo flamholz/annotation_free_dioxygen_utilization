@@ -9,10 +9,6 @@ from tqdm import tqdm
 from typing import Tuple, NoReturn, List, Dict
 from sklearn.linear_model import LogisticRegression
 import pandas as pd
-import inspect
-import warnings 
-
-# warning.simplefilter('ignore')
 
 # Use a GPU if one is available. 
 if torch.cuda.is_available():
@@ -135,7 +131,7 @@ class Nonlinear(torch.nn.Module):
               
             self.train_losses.append(self.loss_func(self(X), torch.FloatTensor(y_enc), weight=self.weight).item()) # Store the average weighted train losses over the epoch. 
             self.train_accs.append(self.balanced_accuracy(X, y)) # Store model accuracy on the training dataset. 
-            
+
             if (X_val is not None) and (y_val is not None):
                 self.val_losses.append(self.loss_func(self(X_val), torch.FloatTensor(y_val_enc)).item()) # Store the unweighted loss on the validation data.
                 self.val_accs.append(self.balanced_accuracy(X_val, y_val)) # Store model accuracy on the validation dataset. 

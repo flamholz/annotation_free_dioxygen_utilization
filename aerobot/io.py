@@ -56,7 +56,7 @@ def read_params(args:argparse.ArgumentParser, model_class:str='nonlinear') -> Di
     params = dict()
     # Determine which parameters to look for in the args, depending on the specified model class.
     if model_class == 'nonlinear': 
-        param_options = ['weight_decay', 'n_epochs', 'hidden_dim', 'alpha', 'lr', 'batch_size', 'early_stopping']
+        param_options = ['weight_decay', 'n_epochs', 'hidden_dim', 'lr', 'batch_size']
         params.update({param:getattr(args, param) for param in param_options})
         # Need to specify the number of classes for Nonlinear, as this is the dimension of the output layer.
         params.update({'n_classes':3 if not args.binary else 2})

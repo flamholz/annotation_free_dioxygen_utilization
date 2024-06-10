@@ -4,7 +4,7 @@ https://www.biorxiv.org/content/10.1101/2024.03.22.586313v1.full.pdf'''
 from aerobot.dataset import dataset_to_numpy, dataset_load_training_validation, dataset_load
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.preprocessing import OneHotEncoder
-from aerobot.io import FEATURE_SUBTYPES, FEATURE_TYPES, save_results_dict, read_params, RESULTS_PATH, DATA_PATH
+from aerobot.io import FEATURE_TYPES, save_results_dict, read_params, RESULTS_PATH, DATA_PATH
 import argparse
 from aerobot.models import evaluate, Nonlinear, GeneralClassifier
 from sklearn.linear_model import LogisticRegression
@@ -98,7 +98,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('model-class', choices=['nonlinear', 'logistic', 'randrel'], help='The type of model to train.')
     parser.add_argument('--n-splits', default=25, type=int, help='The number of folds for K-fold cross validation.')
-    parser.add_argument('--feature-type', '-f', type=str, default=FEATURE_SUBTYPES + FEATURE_TYPES, nargs='+', choices=FEATURE_SUBTYPES + FEATURE_TYPES + [None], help='The feature type on which to train.')
+    parser.add_argument('--feature-type', '-f', type=str, default=FEATURE_TYPES, nargs='+', choices=FEATURE_SUBTYPES + FEATURE_TYPES + [None], help='The feature type on which to train.')
     parser.add_argument('--binary', default=0, type=bool, help='Whether to train on the binary classification task. If False, then ternary classification is performed.')
 
     args = parser.parse_args()

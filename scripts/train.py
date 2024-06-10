@@ -31,7 +31,7 @@ if __name__ == '__main__':
     parser.add_argument('--feature-type', '-f', type=str, default=None, nargs='+', choices=FEATURE_TYPES, help='The feature type on which to train.')
     parser.add_argument('--binary', default=0, type=bool, help='Whether to train on the binary classification task. If False, then ternary classification is performed.')
     # Optional parameters for Nonlinear classifiers. 
-    parser.add_argument('--n-epochs', default=200, type=int, help='The maximum number of epochs to train the Nonlinear classifier.') 
+    parser.add_argument('--n-epochs', default=100, type=int, help='The maximum number of epochs to train the Nonlinear classifier.') 
     parser.add_argument('--lr', default=0.0001, type=float, help='The learning rate for training the Nonlinear classifier.') 
     parser.add_argument('--weight-decay', default=0.01, type=float, help='The L2 regularization penalty to be passed into the Adam optimizer of the Nonlinear classifier.') 
     parser.add_argument('--batch-size', default=16, type=int, help='The size of the batches for Nonlinear classifier training')  

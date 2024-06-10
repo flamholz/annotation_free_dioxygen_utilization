@@ -1,0 +1,1 @@
+{"training_acc": 0.6302320966960745, "validation_acc": 0.6396766389894291, "classes": ["aerobe", "anaerobe", "facultative"], "confusion_matrix": [303, 29, 5, 17, 219, 0, 47, 32, 8], "f1_score": 0.7641418932987379, "n_iter": 77, "converged": true, "C": 100, "penalty": "l2", "max_iter": 100000, "feature_type": "KO.geneset.terminal_oxidase", "model_class": "logistic", "binary": 0}
