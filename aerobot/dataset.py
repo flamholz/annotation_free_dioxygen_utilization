@@ -138,13 +138,17 @@ def dataset_load_feature_order(feature_type:str) -> np.ndarray:
     in the same way as the training dataset, which is used as a reference throughout the project.
 
     :param feature_type: The feature type for which to load data.
-    :param drop_na: Whether or not to drop the features which contain NaN values. 
-    :param drop_x: Whether or not to drop the X amino acids when amino acid feature sets are being loaded.
     :return: A numpy array of features, which are the columns of the features DataFrame for the input feature type. 
     '''
     dataset = dataset_load(os.path.join(DATA_PATH, 'updated_training_datasets.h5'), feature_type=feature_type) # Load the training dataset. 
-    if ('aa_' in feature_type): # Remove all unknown amino acids from the feature set.
-        dataset['features'] = dataset['features'][[f for f in dataset['features'].columns if 'X' not in f]]
+    # Remove ambiguous bases and amino acids. The removed symbols indicate that the base or amino acid is unknown, and 
+    # do not occur very frequently. 
+    if ('aa_' in feature_type): 
+        for a in ['B', '*', 'Z', 'X', 'U', 'J']:
+            dataset['features'] = dataset['features'][[f for f in dataset['features'].columns if a not in f]]
+    if ('nt_' in feature_type) or ('cds_' in feature_type):
+        for n in ['N', 'Y', 'R', 'W', 'K', 'M', 'S', 'D', 'B', 'V', 'H']:
+            dataset['features'] = dataset['features'][[f for f in dataset['features'].columns if n not in f]]
     return dataset_get_features(dataset)
 
 
@@ -187,8 +191,8 @@ def dataset_clean_features(df:pd.DataFrame, feature_type:str='aa_3mer'):
             missing += 1
             df[f] = np.zeros(len(df))
 
-    if missing > 0:
-        print('dataset_clean_features:', missing, feature_type, 'features are missing from the input data. Filled missing data with 0.')
+    # if missing > 0:
+    #     print('dataset_clean_features:', missing, feature_type, 'features are missing from the input data. Filled missing data with 0.')
     
     df = df[feature_order] # Ensure the feature ordering is consistent. 
     assert np.all(~df.isnull().values), 'dataset_clean_features: There should not be any null values in the DataFrame.'

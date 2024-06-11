@@ -127,13 +127,7 @@ def contigs_extract_features(contigs_dfs:List[pd.DataFrame], feature_type:str='a
     hdf_path = os.path.join(CONTIG_PATH, feature_type, f'{genome_id}_{feature_type}.h5')
     hdf = pd.HDFStore(hdf_path, 'a')
     k = int(re.search('\d', feature_type).group(0)) # Get the size of the k-mers for the feature type. 
-
-    def is_complete_genome(contigs_df:pd.DataFrame):
-        # Extract the header from the DataFrame. 
-        header = contigs_df.header.values[0]
-        # If the header is exactly the genome ID (no suffix _{i}), then the DataFrame contains a complete genome. 
-        return header == genome_id
-
+    
     for contigs_df in tqdm(contigs_dfs, desc=f'contigs_extract_features: {genome_id}'):
         # Skip if no contigs are present. 
         if len(contigs_df) < 1:
@@ -152,7 +146,7 @@ def contigs_extract_features(contigs_dfs:List[pd.DataFrame], feature_type:str='a
             row = {'contig_id':contig_id}
             row.update(kmer_count_dataframe(df, k=k))
             rows.append(row)
-        contig_size = 0 if is_complete_genome(contigs_df) else len(contigs_df.seq.values[0])
+        contig_size = len(contigs_df.seq.values[0])
         hdf[str(contig_size)] = pd.DataFrame(rows).fillna(0).set_index('contig_id')
 
     print(f'contigs_extract_features: Writing results to {hdf_path}')
