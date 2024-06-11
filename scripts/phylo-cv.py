@@ -98,7 +98,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('model-class', choices=['nonlinear', 'logistic', 'randrel'], help='The type of model to train.')
     parser.add_argument('--n-splits', default=25, type=int, help='The number of folds for K-fold cross validation.')
-    parser.add_argument('--feature-type', '-f', type=str, default=FEATURE_TYPES, nargs='+', choices=FEATURE_SUBTYPES + FEATURE_TYPES + [None], help='The feature type on which to train.')
+    parser.add_argument('--feature-type', '-f', type=str, default=FEATURE_TYPES, nargs='+', choices=FEATURE_TYPES + [None], help='The feature type on which to train.')
     parser.add_argument('--binary', default=0, type=bool, help='Whether to train on the binary classification task. If False, then ternary classification is performed.')
 
     args = parser.parse_args()
