@@ -95,6 +95,7 @@ PRETTY_NAMES.update({f'cds_{i}mer':f'CDS nucleotide {i}-mer' for i in range(4, 6
 PRETTY_NAMES_LONG = PRETTY_NAMES.copy()
 PRETTY_NAMES_LONG['KO.geneset.terminal_oxidase'] = 'Terminal oxidase counts'
 PRETTY_NAMES_LONG['embedding.geneset.oxygen'] = 'O$_2$ enzyme embeddings'
+PRETTY_NAMES_LONG['KO'] = 'All gene family counts'
 
 
 ANNOTATION_BASED_FEATURE_TYPES = ['metadata.oxygen_genes', 'metadata.pct_oxygen_genes', 'KO', 'KO.geneset.terminal_oxidase', 'embedding.geneset.oxygen']
