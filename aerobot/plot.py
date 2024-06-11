@@ -88,6 +88,9 @@ PRETTY_NAMES['cds_2mer'] = 'CDS nucleotide dimers'
 PRETTY_NAMES['cds_3mer'] = 'CDS nucleotide trimers'
 PRETTY_NAMES.update({'embedding.genome':'Genome embedding'})
 PRETTY_NAMES.update({'metadata':'Metadata', 'metadata.oxygen_genes':'Number of oxygen genes', 'metadata.pct_oxygen_genes':'Percentage oxygen genes', 'metadata.number_of_genes':'Number of genes'})
+PRETTY_NAMES.update({f'nt_{i}mer':f'Nucleotide {i}-mer' for i in range(4, 6)})
+PRETTY_NAMES.update({f'cds_{i}mer':f'CDS nucleotide {i}-mer' for i in range(4, 6)})
+
 
 
 ANNOTATION_BASED_FEATURE_TYPES = ['metadata.oxygen_genes', 'metadata.pct_oxygen_genes', 'KO', 'KO.geneset.terminal_oxidase', 'embedding.geneset.oxygen']
