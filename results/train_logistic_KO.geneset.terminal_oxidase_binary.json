@@ -1,0 +1,1 @@
+{"training_acc": 0.8979239983106158, "validation_acc": 0.8960665174288456, "classes": ["intolerant", "tolerant"], "confusion_matrix": [217, 19, 54, 370], "f1_score": 0.8908308835643494, "n_iter": 36, "converged": true, "C": 100, "penalty": "l2", "max_iter": 100000, "feature_type": "KO.geneset.terminal_oxidase", "model_class": "logistic", "binary": true}

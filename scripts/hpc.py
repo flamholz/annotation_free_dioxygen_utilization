@@ -5,7 +5,7 @@ from aerobot.contigs import KMER_FEATURE_TYPES
 from aerobot.io import SCRIPTS_PATH
 import os
 
-SCRIPT = os.path.join(SCRIPTS_PATH, 'predict-contigs.py')
+SCRIPT = os.path.join(SCRIPTS_PATH, 'phylo-cv.py')
 
 for feature_type in KMER_FEATURE_TYPES:
     

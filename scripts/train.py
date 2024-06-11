@@ -43,11 +43,11 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    t1 = time.perf_counter()
 
     feature_types = FEATURE_TYPES if args.feature_type is None else args.feature_type
 
     for feature_type in feature_types:
+        t1 = time.perf_counter()
         # Load the cleaned-up training and validation datasets.
         training_dataset, validation_dataset = dataset_load_training_validation(feature_type, binary=args.binary, to_numpy=True)
         # Unpack the numpy arrays stored in the dictionary. 
