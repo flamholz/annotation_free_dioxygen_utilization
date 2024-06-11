@@ -52,7 +52,6 @@ def ncbi_rna16s_get_seqs(rna16s_ids:List[str]) -> List[str]:
     return records
 
 
-
 def ncbi_get_nt_ids(genome_id:str) -> List[str]:
     '''Get the search ID for the nucleotide database using a RefSeq genome ID.
 
@@ -77,8 +76,6 @@ def ncbi_download_genomes(genome_ids:List[str]) -> List[str]:
     '''Download the genomes with the specified IDs from the NCBI database.
 
     :param genome_ids: A list of genome IDs to download.
-    :param complete_genomes_only: Whether or not to skip a download if the genome is not complete (i.e. is present
-        in contigs, as opposed to a closed genome).
     :return: A list of the genome IDs which were successfully downloaded, or were already present in the GENOMES_PATH. 
     ''' 
     successfully_downloaded = []

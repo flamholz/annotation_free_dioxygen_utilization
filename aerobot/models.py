@@ -60,10 +60,7 @@ class Nonlinear(torch.nn.Module):
             torch.nn.Linear(hidden_dim, self.n_classes)).to(device)
 
         self.optimizer = torch.optim.Adam(self.classifier.parameters(), lr=lr, weight_decay=weight_decay)
-
-
-    def score(self, X:np.ndarray, y:np.ndarray):
-        pass
+        
 
     def _get_batches(self, X:np.ndarray, y:np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         '''Create batches of size batch_size from training data and labels.'''
@@ -115,7 +112,7 @@ class Nonlinear(torch.nn.Module):
         self.classes_ = self.encoder.categories_[0] # Extract categories from the one-hot encoder. 
         self.weight = torch.FloatTensor([1 / (np.sum(y == c) / len(y)) for c in self.classes_]) # Compute loss weights as the inverse frequency.
 
-        self.best_model_weight = None 
+        self.best_model_weights = None 
         self.best_val_acc = 0
 
         self.train() # Model in train mode.  
@@ -132,9 +129,8 @@ class Nonlinear(torch.nn.Module):
             self.train_losses.append(self.loss_func(self(X), torch.FloatTensor(y_enc), weight=self.weight).item()) # Store the average weighted train losses over the epoch. 
             self.train_accs.append(self.balanced_accuracy(X, y)) # Store model accuracy on the training dataset. 
 
-            if (X_val is not None) and (y_val is not None):
-                self.val_losses.append(self.loss_func(self(X_val), torch.FloatTensor(y_val_enc)).item()) # Store the unweighted loss on the validation data.
-                self.val_accs.append(self.balanced_accuracy(X_val, y_val)) # Store model accuracy on the validation dataset. 
+            self.val_losses.append(self.loss_func(self(X_val), torch.FloatTensor(y_val_enc)).item()) # Store the unweighted loss on the validation data.
+            self.val_accs.append(self.balanced_accuracy(X_val, y_val)) # Store model accuracy on the validation dataset. 
 
 
             self.train() # Make sure to put the model back into training mode, as the predict function switches to evaluation mode. 

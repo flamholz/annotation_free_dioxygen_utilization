@@ -23,6 +23,8 @@ KMER_FEATURE_TYPES = ['aa_1mer', 'aa_2mer', 'aa_3mer']
 KMER_FEATURE_TYPES += ['nt_1mer', 'nt_2mer', 'nt_3mer'] # , 'nt_4mer', 'nt_5mer']
 # KMER_FEATURE_TYPES += ['cds_1mer', 'cds_2mer', 'cds_3mer', 'cds_4mer', 'cds_5mer']
 
+CONTIG_SIZES = list(range(1000, 11000, 1000)) + [20000, 30000, 40000] + [None]
+
 
 def contigs_make_feature_type_directory(feature_type:str):
     '''Create sub-directories in the CONTIG_PATH folder for organizing feature type data.'''

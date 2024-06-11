@@ -250,37 +250,77 @@ def remove_duplicates(data:pd.DataFrame) -> Tuple[pd.DataFrame, np.ndarray, np.n
     return data[~duplicated].copy(), duplicate_ids, ids_to_remove
 
 
-def training_validation_split(all_datasets:Dict[str, pd.DataFrame], random_seed:int=42) -> Tuple[Dict[str, pd.DataFrame], Dict[str, pd.DataFrame]]:
+def training_testing_validation_split(all_datasets:Dict[str, pd.DataFrame], random_seed:int=42) -> Tuple[Dict[str, pd.DataFrame], Dict[str, pd.DataFrame]]:
     '''Split concatenated feature dataset into training and validation sets using phylogeny.
     
     :param all_datasets: A dictionary mapping each feature type to the corresponding dataset.
     :param random_seed: A random seed for reproducibility.
-    :return: A 2-tuple of dictionaries. Each dictionary maps each feature type to a training (first tuple element) or validation
-        (second tuple element) dataset.
+    :return: A 3-tuple of dictionaries. Each dictionary maps each feature type to a training (first tuple element) testing
+        (second tuple element), or validation (third tuple element) dataset.
     '''
     labels = all_datasets['labels'] # Get the labels out of the dictionary.
     # Group IDs by phylogenetic class. Convert to a dictionary mapping class to a list of indices.
     ids_by_class = labels.groupby('Class').apply(lambda x: x.index.tolist(), include_groups=False).to_dict()
+    np.random.seed(42) # For reproducibility.
 
-    # Now that the problem with the nt_1mer labels is fixed, there are no blank classes.
-    # Some of the classes are 'no rank' or an empty string. Combine them under 'no rank'.
-    # ids_by_class['no rank'].extend(ids_by_class.pop(''))
+    testing_ids = []
+    for class_, ids in ids_by_class.items():
+        n = int(0.2 * len(ids)) # Get 20 percent of the indices from the class for the validation set.
+        selected_ids = np.random.choice(ids, n, replace=False)
+        remaining_ids = [id_ for id_ in ids if id_ not in selected_ids]
+        testing_ids.extend(selected_ids)
+        ids_by_class[class_] = remaining_ids # Make sure only the remaining IDs are left. 
 
-    counts_by_class = {k: len(v) for k, v in ids_by_class.items()}
-
-    np.random.seed(random_seed) # For reproducibility. 
+    # Take 20 percent of the remaining IDs for each class for the validation set. 
     validation_ids = []
     for class_, ids in ids_by_class.items():
         n = int(0.2 * len(ids)) # Get 20 percent of the indices from the class for the validation set.
-        validation_ids.extend(np.random.choice(ids, n, replace=False))
+        selected_ids = np.random.choice(ids, n, replace=False)
+        remaining_ids = [id_ for id_ in ids if id_ not in selected_ids]
+        validation_ids.extend(selected_ids)
+        ids_by_class[class_] = remaining_ids # Make sure only the remaining IDs are left.
+
+    # Add all remaining IDs to the training dataset. 
+    training_ids =  []
+    for ids in ids_by_class.values():
+        training_ids.extend(ids)
 
     # Split the concatenated dataset back into training and validation sets
-    training_datasets, validation_datasets = dict(), dict()
+    training_datasets, testing_datasets, validation_datasets = dict(), dict(), dict()
     for feature_type, dataset in all_datasets.items():
-        training_datasets[feature_type] = dataset[~dataset.index.isin(validation_ids)]
+        training_datasets[feature_type] = dataset[dataset.index.isin(training_ids)]
+        testing_datasets[feature_type] = dataset[dataset.index.isin(testing_ids)]
         validation_datasets[feature_type] = dataset[dataset.index.isin(validation_ids)]
 
-    return training_datasets, validation_datasets
+    return training_datasets, testing_datasets, validation_datasets
+
+# def training_validation_split(all_datasets:Dict[str, pd.DataFrame], random_seed:int=42) -> Tuple[Dict[str, pd.DataFrame], Dict[str, pd.DataFrame]]:
+#     '''Split concatenated feature dataset into training and validation sets using phylogeny.
+    
+#     :param all_datasets: A dictionary mapping each feature type to the corresponding dataset.
+#     :param random_seed: A random seed for reproducibility.
+#     :return: A 2-tuple of dictionaries. Each dictionary maps each feature type to a training (first tuple element) or validation
+#         (second tuple element) dataset.
+#     '''
+#     labels = all_datasets['labels'] # Get the labels out of the dictionary.
+#     # Group IDs by phylogenetic class. Convert to a dictionary mapping class to a list of indices.
+#     ids_by_class = labels.groupby('Class').apply(lambda x: x.index.tolist(), include_groups=False).to_dict()
+
+#     counts_by_class = {k: len(v) for k, v in ids_by_class.items()}
+
+#     np.random.seed(random_seed) # For reproducibility. 
+#     validation_ids = []
+#     for class_, ids in ids_by_class.items():
+#         n = int(0.2 * len(ids)) # Get 20 percent of the indices from the class for the validation set.
+#         validation_ids.extend(np.random.choice(ids, n, replace=False))
+
+#     # Split the concatenated dataset back into training and validation sets
+#     training_datasets, validation_datasets = dict(), dict()
+#     for feature_type, dataset in all_datasets.items():
+#         training_datasets[feature_type] = dataset[~dataset.index.isin(validation_ids)]
+#         validation_datasets[feature_type] = dataset[dataset.index.isin(validation_ids)]
+
+#     return training_datasets, validation_datasets
 
 
 
