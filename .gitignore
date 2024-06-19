@@ -3,5 +3,4 @@ __pycache__/
 .ipynb_checkpoints/
 data
 data.zip
-models/*
 **/patric_25m_epoch01-val_loss_0.57_bias_removed.pt
