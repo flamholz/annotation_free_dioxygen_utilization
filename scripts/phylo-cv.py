@@ -24,7 +24,7 @@ def phylogenetic_cross_validation(dataset:FeatureDataset, n_splits:int=25, level
     X, y = X[groups != 'no rank'], y[groups != 'no rank']
     # The RandomRelativeClassifier uses genome IDs as input, so need to adjust the X array accordingly. 
     if model_class == 'randrel':
-        X = dataset.index()
+        X = dataset.index()[groups != 'no rank']
     groups = groups[groups != 'no rank']
 
     # GroupShuffleSplit generates a sequence of randomized partitions in which a subset of groups are held out for each split.
@@ -44,7 +44,7 @@ def phylogenetic_cross_validation(dataset:FeatureDataset, n_splits:int=25, level
             model.fit(X[train_idxs], y[train_idxs])
 
         elif model_class == 'randrel':
-            model = RandomRelativeClassifier(level=level)
+            model = RandomRelativeClassifier(level=level, n_classes=n_classes)
             model.fit(dataset.metadata)
 
         test_accs.append(model.balanced_accuracy(X, y)) 
@@ -68,13 +68,13 @@ if __name__ == '__main__':
 
     results = dict()
     for level in LEVELS:
-        print(f'Performing phylogeny-based cross-validation with {level.lower()}-level holdout set.')
+        print(f'\nPerforming phylogeny-based cross-validation with {level.lower()}-level holdout set.')
         # Retrieve the balanced accuracy scores for the level. 
         test_accs = phylogenetic_cross_validation(dataset, level=level, model_class=model_class, n_splits=args.n_splits, n_classes=args.n_classes)
         results[f'{level.lower()}_test_accs'] = test_accs
     
     # Add other relevant information to the results dictionary. Make sure to not include tax_data if it's there.
-    results['feature_type'] = feature_type # Add feature type to the results.
+    results['feature_type'] = feature_type if model_class != 'randrel' else None 
     results['model_class'] = model_class
     results['n_classes'] = args.n_classes
 

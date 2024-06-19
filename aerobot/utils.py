@@ -19,10 +19,15 @@ SCRIPTS_PATH = os.path.join(ROOT_PATH, '..', 'scripts')
 FIGURES_PATH = os.path.join(ROOT_PATH, '..', 'figures')
 RESULTS_PATH = os.path.join(ROOT_PATH, '..', 'results')
 
+# Paths to subdirectories within the data directory. 
+CONTIGS_PATH = os.path.join(DATA_PATH, 'contigs')
+FEATURES_PATH = os.path.join(DATA_PATH, 'features')
+RNA16S_PATH = os.path.join(DATA_PATH, 'rna16s')
+
 
 FEATURE_TYPES = ['ko', 'ko_terminal_oxidase_genes']
 FEATURE_TYPES += ['chemical']
-FEATURE_TYPES += ['embedding_genome', 'embedding_oxygen_genes', 'embedding_rna16s'] 
+FEATURE_TYPES += ['embedding_genome', 'embedding_oxygen_genes'] #, 'embedding_rna16s'] 
 FEATURE_TYPES += ['number_of_genes', 'number_of_oxygen_genes', 'percent_oxygen_genes']
 FEATURE_TYPES += [f'nt_{i}mer' for i in range(1, 5)]
 FEATURE_TYPES += [f'cds_{i}mer' for i in range(1, 6)]

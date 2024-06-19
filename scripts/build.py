@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from aerobot.utils import save_hdf, DATA_PATH, FEATURE_TYPES, training_testing_validation_split
+from aerobot.utils import save_hdf, DATA_PATH, FEATURE_TYPES, training_testing_validation_split, FEATURES_PATH
 from aerobot.features import chemical
 import aerobot
 import os
@@ -20,11 +20,8 @@ warnings.filterwarnings('ignore', category=tables.NaturalNameWarning)
 SUPPRESSED_GENOME_IDS = pd.read_csv(os.path.join(DATA_PATH, 'suppressed_genomes.csv'), usecols=['id'])['id']
 SUPPRESSED_GENOME_IDS = [id_.split('.')[0] for id_ in SUPPRESSED_GENOME_IDS] # Remove the version ID. 
 
-TERMINAL_OXIDASE_KOS = pd.read_csv(os.path.join(DATA_PATH, 'terminal_oxidase_genes.csv')).ko.unique()
+TERMINAL_OXIDASE_KOS = pd.read_csv(os.path.join(FEATURES_PATH, 'terminal_oxidase_genes.csv')).ko.unique()
 CHEMICAL_INPUTS = ['aa_1mer', 'cds_1mer', 'number_of_genes', 'nt_1mer']
-# KOS = pd.read_csv(os.path.join(DATA_PATH, 'kos.csv')) # The union of KO groups in the Madin and Jablonska data.
-
-FEATURE_TYPES = [f for f in FEATURE_TYPES if f != 'embedding_rna16s']
 
 
 # NOTE: Called these 'data' and not 'features' because the same function also works for the labels. 
@@ -127,7 +124,7 @@ if __name__ == '__main__':
     datasets = dict()
 
     # for feature_type in ['metadata'] + FEATURE_TYPES:
-    for feature_type in ['percent_oxygen_genes', 'metadata']:
+    for feature_type in FEATURE_TYPES:
         print(f'\nBuilding {feature_type} data...')
 
         # Load in the datasets.

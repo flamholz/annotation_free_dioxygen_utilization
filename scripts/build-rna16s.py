@@ -3,7 +3,7 @@ import numpy as np
 from Bio import pairwise2
 from Bio import SeqIO
 from Bio.Seq import Seq
-from aerobot.utils import DATA_PATH, save_hdf, training_testing_validation_split
+from aerobot.utils import RNA16S_PATH, save_hdf, training_testing_validation_split
 from aerobot.features import rna16s
 import aerobot.entrez
 import pandas as pd
@@ -32,8 +32,8 @@ GAP_EXTENSION_PENALTY = -1
 FORWARD_PRIMER = 'TATGGTAATTGTCTCCTACGGRRSGCAGCAG'
 REVERSE_PRIMER = 'AGTCAGTCAGCCGGACTACNVGGGTWTCTAAT'
 
-RNA16S_FULL_LENGTH_PATH = os.path.join(DATA_PATH, 'rna16s_full_length.fasta') # Path where the full-length RNA sequences will be written.  
-RNA16S_V3_V4_REGIONS_PATH = os.path.join(DATA_PATH, 'rna16s_v3_v4_regions.fasta') 
+RNA16S_FULL_LENGTH_PATH = os.path.join(RNA16S_PATH, 'full_length.fasta') # Path where the full-length RNA sequences will be written.  
+RNA16S_V3_V4_REGIONS_PATH = os.path.join(RNA16S_PATH, 'v3_v4_regions.fasta') 
 
 
 # TODO: What is the V3 V4 region? Why is it important, and why are we focusing on it?
@@ -85,16 +85,15 @@ def remove_duplicates(seq_dict:Dict[str, str]):
         record.name = new_id
         new_seq_dict[new_id] = record 
     n_removed = len(seq_dict) - len(new_seq_dict)
-    print(f'Removed {n_removed} duplicate entries from 16S dataset.')
+    print(f'remove_duplicates: Removed {n_removed} duplicate entries from 16S dataset.')
     return new_seq_dict
 
 
 if __name__ == '__main__':
 
-
     # Load in metadata, which contains the accessions for the 16S sequences.
     # Metadata is from paper http://onlinelibrary.wiley.com/doi/10.1111/1462-2920.13023/abstract
-    metadata = pd.read_csv(os.path.join(DATA_PATH, 'rna16s_metadata.csv'), index_col=0)
+    metadata = pd.read_csv(os.path.join(RNA16S_PATH, 'rna16s_metadata.csv'), index_col=0)
 
     # Get the 16S sequence accessions from the metadata file.  
     ids = metadata.index.unique().tolist()
@@ -137,12 +136,12 @@ if __name__ == '__main__':
     training_dataset, testing_dataset, validation_dataset = training_testing_validation_split(dataset) 
 
     # Save each dataset to an HDF file.
-    print('Saving 16S RNA training data to', os.path.join(DATA_PATH, 'rna16s_training_dataset.h5'))
-    save_hdf(training_dataset, os.path.join(DATA_PATH, 'rna16s_training_dataset.h5'))
-    print('Saving 16S RNA validation data to', os.path.join(DATA_PATH, 'rna16s_validation_dataset.h5'))
-    save_hdf(validation_dataset, os.path.join(DATA_PATH, 'rna16s_validation_dataset.h5'))
-    print('Saving 16S RNA testing data to', os.path.join(DATA_PATH, 'rna16s_testing_dataset.h5'))
-    save_hdf(testing_dataset, os.path.join(DATA_PATH, 'rna16s_testing_dataset.h5'))
+    print('Saving 16S RNA training data to', os.path.join(RNA16S_PATH, 'training_dataset.h5'))
+    save_hdf(training_dataset, os.path.join(RNA16S_PATH, 'rna16s_training_dataset.h5'))
+    print('Saving 16S RNA validation data to', os.path.join(RNA16S_PATH, 'validation_dataset.h5'))
+    save_hdf(validation_dataset, os.path.join(RNA16S_PATH, 'validation_dataset.h5'))
+    print('Saving 16S RNA testing data to', os.path.join(RNA16S_PATH, 'testing_dataset.h5'))
+    save_hdf(testing_dataset, os.path.join(RNA16S_PATH, 'testing_dataset.h5'))
 
 
 

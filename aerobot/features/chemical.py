@@ -1,17 +1,17 @@
 import pandas as pd 
 import numpy as np 
-from aerobot.utils import AMINO_ACIDS, NUCLEOTIDES, ROOT_PATH
+from aerobot.utils import AMINO_ACIDS, NUCLEOTIDES, FEATURES_PATH 
 import os 
 
 
 def load_chemistry(seq_type:str):
     if seq_type == 'cds':
-        nt_df = pd.read_csv(os.path.join(ROOT_PATH, 'features', 'chemical_nt.csv'))
+        nt_df = pd.read_csv(os.path.join(FEATURES_PATH, 'nt_chemical_features.csv'))
         nt_df = nt_df[nt_df.type == 'RNA'].set_index('letter_code')
         # return nt_df # Includes DNA and RNA names
         return nt_df.loc[NUCLEOTIDES]
     elif seq_type == 'aa':
-        aa_df = pd.read_csv(os.path.join(ROOT_PATH, 'features', 'chemical_aa.csv'), index_col=0)
+        aa_df = pd.read_csv(os.path.join(FEATURES_PATH, 'aa_chemical_features.csv'), index_col=0)
         return aa_df
 
 

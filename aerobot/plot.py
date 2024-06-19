@@ -3,7 +3,7 @@ import matplotlib as mpl
 import numpy as np 
 import pandas as pd
 from matplotlib.colors import ListedColormap
-from aerobot.io import FEATURE_TYPES, RESULTS_PATH, load_results_dict
+from aerobot.utils import FEATURE_TYPES, RESULTS_PATH, load_results_dict
 import matplotlib.ticker as ticker
 import seaborn as sns
 from typing import Dict, NoReturn, List
@@ -76,7 +76,7 @@ def plot_configure_mpl(title_font_size:int=6.5, label_font_size:float=6.5,
 
 
 # Pretty names for each feature type, for plotting. 
-PRETTY_NAMES = {'KO':'Gene families', 'embedding.geneset.oxygen':'Oxygen gene set', 'chemical':'Chemical features', 'KO.geneset.terminal_oxidase':'Terminal oxidase gene families'}
+PRETTY_NAMES = {'ko':'Gene families', 'embedding_oxygen_genes':'Oxygen gene set', 'chemical':'Chemical features', 'ko_terminal_oxidase_genes':'Terminal oxidase gene families'}
 PRETTY_NAMES['aa_1mer'] = 'Amino acid counts'
 PRETTY_NAMES['aa_2mer'] = 'Amino acid dimers'
 PRETTY_NAMES['aa_3mer'] = 'Amino acid trimers'
@@ -86,14 +86,14 @@ PRETTY_NAMES['nt_3mer'] = 'Nucleotide trimers'
 PRETTY_NAMES['cds_1mer'] = 'CDS nucleotide counts'
 PRETTY_NAMES['cds_2mer'] = 'CDS nucleotide dimers'
 PRETTY_NAMES['cds_3mer'] = 'CDS nucleotide trimers'
-PRETTY_NAMES.update({'embedding.genome':'Genome embedding'})
-PRETTY_NAMES.update({'metadata':'Metadata', 'metadata.oxygen_genes':'Number of oxygen genes', 'metadata.pct_oxygen_genes':'Percentage oxygen genes', 'metadata.number_of_genes':'Number of genes'})
+PRETTY_NAMES.update({'embedding_genome':'Genome embedding'})
+PRETTY_NAMES.update({'metadata':'Metadata', 'number_of_oxygen_genes':'Number of oxygen genes', 'percent_oxygen_genes':'Percentage oxygen genes', 'number_of_genes':'Number of genes'})
 PRETTY_NAMES.update({f'nt_{i}mer':f'Nucleotide {i}-mer' for i in range(4, 6)})
 PRETTY_NAMES.update({f'cds_{i}mer':f'CDS nucleotide {i}-mer' for i in range(4, 6)})
 
 
 
-ANNOTATION_BASED_FEATURE_TYPES = ['metadata.oxygen_genes', 'metadata.pct_oxygen_genes', 'KO', 'KO.geneset.terminal_oxidase', 'embedding.geneset.oxygen']
+ANNOTATION_BASED_FEATURE_TYPES = ['number_of_oxygen_genes', 'percent_oxygen_genes', 'ko', 'ko_terminal_oxidase_genes', 'embedding_oxygen_genes']
 # All remaining feature types are "annotation-free."
 ANNOTATION_FREE_FEATURE_TYPES = [f for f in FEATURE_TYPES if f not in ANNOTATION_BASED_FEATURE_TYPES]
 
@@ -122,7 +122,7 @@ def plot_training_curve(results:Dict, ax:plt.Axes=None) -> NoReturn:
 
     # Extract some information from the results dictionary. 
     train_losses = results.get('training_losses', [])
-    train_accs = results.get('training_accs', [])
+    train_accs = results.get('train_accs', [])
     val_losses = results.get('validation_losses', [])
     val_accs = results.get('validation_accs', [])
     feature_type = results['feature_type']
@@ -190,8 +190,8 @@ def plot_model_accuracy_barplot(results:Dict[str, Dict], ax:plt.Axes=None, featu
     feature_types = feature_type_order if feature_type_order is not None else plot_order_feature_types(list(results.keys())) 
     
     # Extract the final balanced accuracies on training and validation sets from the results dictionaries. 
-    train_accs  = [results[feature_type]['training_acc'] for feature_type in feature_types]
-    test_accs  = [results[feature_type]['testing_acc'] for feature_type in feature_types]
+    train_accs  = [results[feature_type]['train_acc'] for feature_type in feature_types]
+    test_accs  = [results[feature_type]['test_acc'] for feature_type in feature_types]
 
     # Map annotation-free or annotation-based features to different colors. 
     colors = [plot_color_palette()['blue'] if f in ANNOTATION_BASED_FEATURE_TYPES else plot_color_palette()['green'] for f in feature_types] 
@@ -208,7 +208,7 @@ def plot_model_accuracy_barplot(results:Dict[str, Dict], ax:plt.Axes=None, featu
     # Label bins with the feature name. 
     ax.set_xticks(np.arange(0, len(feature_types), 1), [PRETTY_NAMES[f] for f in feature_types], rotation=45, ha='right')
 
-    plot_balanced_accuracy_axis(ax, random_baseline=0.5 if results[feature_types[0]]['binary'] else 0.33 )
+    plot_balanced_accuracy_axis(ax, random_baseline=1/results[feature_types[0]]['n_classes'])
 
 
 

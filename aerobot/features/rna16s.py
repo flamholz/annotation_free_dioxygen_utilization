@@ -4,7 +4,7 @@ from genslm import GenSLM, SequenceDataset
 import pandas as pd
 from typing import List, Tuple
 from Bio import SeqIO
-from aerobot.utils import ROOT_PATH
+from aerobot.utils import FEATURES_PATH 
 from torch.utils.data import DataLoader
 import os
 from tqdm import tqdm
@@ -14,7 +14,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 def load_genslm():
     # First argument is model ID corresponding to a pre-trained model. (e.g., genslm_25M_patric)
     # model_cache_dir is a directory where model weights have been downloaded to
-    model = GenSLM('genslm_25M_patric', model_cache_dir=os.path.join(ROOT_PATH, 'features')) 
+    model = GenSLM('genslm_25M_patric', model_cache_dir=FEATURES_PATH) 
     model.to(device)
     total_params = sum(p.numel() for p in model.parameters())
 

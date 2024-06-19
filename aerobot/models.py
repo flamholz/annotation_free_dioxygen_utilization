@@ -77,13 +77,18 @@ class BaseClassifier():
 
 class RandomRelativeClassifier(BaseClassifier):
 
-    def __init__(self, level:str='Phylum', metadata:pd.DataFrame=None, n_classes:int=3):
+    def __init__(self, level:str='Phylum', n_classes:int=3):
         '''Initialize a RandomRelative classifier.'''
         BaseClassifier.__init__(self, n_classes=n_classes)
-        self.taxonomy = pd.read_hdf(os.path.join(DATA_PATH, 'updated_all_datasets.h5'), key='labels')[[level, 'physiology']]
-    
-    def fit(metadata:pd.DataFrame):
+        self.level = level
+        self.n_classes = n_classes
+
+    def fit(self, metadata:pd.DataFrame):
         self.taxonomy = metadata[[self.level, 'physiology']]
+        if self.n_classes == 2:
+            self.taxonomy = self.taxonomy.replace({'Aerobe':'tolerant', 'Facultative':'tolerant', 'Anaerobe':'intolerant'})
+        elif self.n_classes == 3:
+            self.taxonomy = self.taxonomy.replace({'Aerobe':'aerobe', 'Facultative':'facultative', 'Anaerobe':'anaerobe'})
 
     def predict(self, X:np.ndarray):
         # Get the taxonomy label at self.level for each genome ID in X.
