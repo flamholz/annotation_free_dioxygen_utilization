@@ -77,17 +77,13 @@ class BaseClassifier():
 
 class RandomRelativeClassifier(BaseClassifier):
 
-    def __init__(self, level:str='Phylum', n_classes:int=3):
+    def __init__(self, level:str='Phylum', metadata:pd.DataFrame=None, n_classes:int=3):
         '''Initialize a RandomRelative classifier.'''
         BaseClassifier.__init__(self, n_classes=n_classes)
         self.taxonomy = pd.read_hdf(os.path.join(DATA_PATH, 'updated_all_datasets.h5'), key='labels')[[level, 'physiology']]
-        self.level = level
-        
-        if self.n_classes == 2: # If the task is binary classification...
-            label_map = {"Aerobe": "tolerant", "Facultative": "tolerant", "Anaerobe": "intolerant"}
-        elif self.n_classes == 3: # If the task is ternary classification...
-            label_map = {"Aerobe": "aerobe", "Facultative": "facultative", "Anaerobe": "anaerobe"}
-        self.taxonomy.physiology = self.taxonomy.physiology.replace(label_map) # Format the labels.
+    
+    def fit(metadata:pd.DataFrame):
+        self.taxonomy = metadata[[self.level, 'physiology']]
 
     def predict(self, X:np.ndarray):
         # Get the taxonomy label at self.level for each genome ID in X.
@@ -258,11 +254,6 @@ class NonlinearClassifier(BasePytorchClassifier):
         
         # Set weight_decay to correspond to the regularization strength of the LogisticClassifier.
         self.optimizer = torch.optim.Adam(self.classifier.parameters(), lr=lr, weight_decay=0.01)
-    
-
-    # def fit(self, X:np.ndarray, y:np.ndarray, X_val:np.ndarray, y_val:np.ndarray):
-    #     _loss = lambda X, y, w : self._loss(X, y, w)
-    #     return self._fit(X, y, X_val, y_val, _loss=_loss)
     
 
 
