@@ -1,13 +1,12 @@
-
-'''Code for generating files containing k-mer counts from FASTA files.'''
-
-import pandas as pd
-import numpy as np
+import pandas as pd 
+import numpy as np 
+from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
 import gzip
-from Bio import Entrez, SeqIO
-from typing import Dict
+from typing import Dict, List
+from tqdm import tqdm
 
-def kmer_sequence_to_kmers(seq:str, kmers:Dict[str, int], k:int=3) -> Dict[str, int]:
+def from_sequence(seq:str, kmers:Dict[str, int], k:int=3) -> Dict[str, int]:
     '''Count all k-mers in the input sequence, updating the dictionary with counts.
     
     :param seq: A sequence of nucleotides or amino acids for which to compute k-mer counts.
@@ -24,7 +23,7 @@ def kmer_sequence_to_kmers(seq:str, kmers:Dict[str, int], k:int=3) -> Dict[str, 
     return kmers
 
 
-def kmer_count_gz(path, k:int=3) -> Dict[str, int]:
+def from_gzip(path, k:int=3) -> Dict[str, int]:
     '''Count k-mers stored in a zipped file (with a .gz extension).
 
     :param path: The path to the compressed FASTA file to read. 
@@ -36,10 +35,11 @@ def kmer_count_gz(path, k:int=3) -> Dict[str, int]:
         # Parse the fasta file and iterate through each record.
         for record in SeqIO.parse(f, 'fasta'):
             seq = str(record.seq) 
-            kmers = kmer_sequence_to_kmers(seq, kmer, k=k)
+            kmers = from_sequence(seq, kmer, k=k)
     return kmers
+
     
-def kmer_count_dataframe(df:pd.DataFrame, k:int=3) -> Dict[str, int]:
+def from_dataframe(df:pd.DataFrame, k:int=3) -> Dict[str, int]:
     '''Count the k-mers for sequences stored in a pandas DataFrame. 
 
     :param df: A DataFrame containing sequences over which k-mers will be counted. K-mer counts are accumulated
@@ -49,24 +49,30 @@ def kmer_count_dataframe(df:pd.DataFrame, k:int=3) -> Dict[str, int]:
     '''
     kmers = dict()
     for row in df.itertuples():
-        kmers = kmer_sequence_to_kmers(row.seq, kmers, k=k)
+        kmers = from_sequence(row.seq, kmers, k=k)
     return kmers
 
 
-def kmer_count_fasta(path:str, k:int=3) -> Dict[str, int]:
-    '''Count k-mers stored in a non-compressed FASTA file (with a .fa, .fn, etc. extension).
-    
-    :param path: The path to the FASTA file to read. 
-    :param k: The k-mer length. 
-    :return: A dictionary mapping k-mers to their counts in the FASTA file.
-    '''
-    kmers = dict() # Initialize a dictionary to store the k-mers. 
-    with open(path, 'r') as f:
-        # Parse the FASTA file and iterate through each record.
-        for record in SeqIO.parse(f, 'fasta'):
-            seq = str(record.seq) 
-            kmers = kmer_sequence_to_kmers(seq, kmers, k=k)
-    return kmers
 
+def from_records(records:List[SeqRecord], k:int=3):
+    '''Takes a list of SeqRecords as input, which have been read in form a FASTA file. 
+    This function does not assume that all sequences contained in the records belong to the same
+    sequence object (i.e. genome, contig), so first groups the sequences by ID.'''
+
+    # Group the sequences represented by the records according to their ID.
+    seqs_by_id = dict()
+    for record in records:
+        if record.id not in seqs_by_id:
+            seqs_by_id[record.id] = []
+        seqs_by_id[record.id].append(str(record.seq))
+
+    kmers = []
+    for id_, seqs in tqdm(seqs_by_id.items(), desc='kmers.from_records'):
+        id_kmers = {'id':id_}
+        for seq in seqs:
+            id_kmers = from_sequence(seq, id_kmers, k=k)
+        kmers.append(id_kmers)
+        
+    return pd.DataFrame(kmers).set_index('id')
 
 

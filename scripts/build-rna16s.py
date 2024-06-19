@@ -1,23 +1,29 @@
 import pandas as pd
-from Bio import Entrez, SeqIO
-from Bio.Seq import Seq
-from aerobot.io import load_fasta, DATA_PATH
-from aerobot.rna16s import RNA16S_PATH
-from aerobot.ncbi import ncbi_rna16s_get_seqs
+import numpy as np 
 from Bio import pairwise2
-from Bio.SeqIO import FastaIO
+from Bio import SeqIO
+from Bio.Seq import Seq
+from aerobot.utils import DATA_PATH, save_hdf, training_testing_validation_split
+from aerobot.features import rna16s
+import aerobot.entrez
 import pandas as pd
-# In paper http://onlinelibrary.wiley.com/doi/10.1111/1462-2920.13023/abstract
-# Primers are in http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0116106#sec004
-from copy import copy, deepcopy
-import argparse
 import os
-from tqdm import tqdm 
-from aerobot.rna16s import RNA16S_TEST_PATH, RNA16S_TRAIN_PATH, RNA16S_VAL_PATH
+import tables
+from typing import Dict 
+from tqdm import tqdm
+import warnings
+
+# Ignore some annoying warnings triggered when saving HDF files.
+warnings.filterwarnings('ignore', category=pd.io.pytables.PerformanceWarning)
+warnings.filterwarnings('ignore', category=tables.NaturalNameWarning)
+
+
+# NOTE: Primers are in http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0116106#sec004
 
 # Values for pairwise local alignment: 2 points for matches, no points deducted for non-identical characters, 
 # -10 are deducted for opening a gap, and -1 points are deducted for extending a gap.
 # TODO: Figure out why these values were selected.  
+
 MATCH_SCORE = 1
 MISMATCH_PENALTY = 0
 GAP_START_PENALTY = -10
@@ -26,11 +32,12 @@ GAP_EXTENSION_PENALTY = -1
 FORWARD_PRIMER = 'TATGGTAATTGTCTCCTACGGRRSGCAGCAG'
 REVERSE_PRIMER = 'AGTCAGTCAGCCGGACTACNVGGGTWTCTAAT'
 
-RNA16S_FULL_LENGTH_PATH = os.path.join(RNA16S_PATH, 'rna16s_full_length.fasta') # Path where the full-length RNA sequences will be written.  
-RNA16S_V3_V4_REGIONS_PATH = os.path.join(RNA16S_PATH, 'rna16s_v3_v4_regions.fasta') 
+RNA16S_FULL_LENGTH_PATH = os.path.join(DATA_PATH, 'rna16s_full_length.fasta') # Path where the full-length RNA sequences will be written.  
+RNA16S_V3_V4_REGIONS_PATH = os.path.join(DATA_PATH, 'rna16s_v3_v4_regions.fasta') 
 
 
 # TODO: What is the V3 V4 region? Why is it important, and why are we focusing on it?
+
 
 # What on Earth is this doing??
 def get_amplicon(seq, forward_primer:str=None, reverse_primer:str=None):
@@ -57,52 +64,65 @@ def get_primers(forward_primer:str=FORWARD_PRIMER, reverse_primer:str=REVERSE_PR
     return forward_primer, reverse_primer
 
 
-def train_test_validation_split(fasta_df:pd.DataFrame):
-    '''Divide RNA 16S sequences into training, testing, and validation datasets.'''
-    # Shuffle before splitting.
-    fasta_df = fasta_df.sample(len(fasta_df))
+def load_fasta(path) -> pd.DataFrame:
+    ids, seqs = [], []
+    for record in SeqIO.parse(path, 'fasta'):
+        ids.append(str(record.id))
+        seqs.append(str(record.seq))
+    df = pd.DataFrame()
+    df['seqs'] = seqs 
+    df['id'] = [id_.split('.')[0] for id_ in ids] 
+    return df.set_index('id')
 
-    fasta_df_train = fasta_df.iloc[0:800]
-    fasta_df_test = fasta_df.iloc[801:900]
-    fasta_df_val = fasta_df.iloc[901:]
 
-    fasta_df_test.to_csv(RNA16S_TEST_PATH)
-    fasta_df_train.to_csv(RNA16S_TRAIN_PATH)
-    fasta_df_val.to_csv(RNA16S_VAL_PATH)
+def remove_duplicates(seq_dict:Dict[str, str]):
+
+    new_seq_dict = dict()
+    for id_, record in seq_dict.items():
+        new_id = id_.split('.')[0]
+        # Make sure to modify the underlying record so the changes get written to the FASTA file.
+        record.id = new_id 
+        record.name = new_id
+        new_seq_dict[new_id] = record 
+    n_removed = len(seq_dict) - len(new_seq_dict)
+    print(f'Removed {n_removed} duplicate entries from 16S dataset.')
+    return new_seq_dict
 
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
 
     # Load in metadata, which contains the accessions for the 16S sequences.
-    metadata_df = pd.read_csv(os.path.join(RNA16S_PATH, 'Mark_Westoby_Organism_Metadata_Export_02152018.tsv'), sep='\t')
+    # Metadata is from paper http://onlinelibrary.wiley.com/doi/10.1111/1462-2920.13023/abstract
+    metadata = pd.read_csv(os.path.join(DATA_PATH, 'rna16s_metadata.csv'), index_col=0)
 
     # Get the 16S sequence accessions from the metadata file.  
-    rna16s_ids = metadata_df.GENBANK_16S_ID[~metadata_df.GENBANK_16S_ID.str.contains('(null)', regex=False)]
-    rna16s_ids = rna16s_ids.unique().tolist()
+    ids = metadata.index.unique().tolist()
 
     if not os.path.exists(RNA16S_FULL_LENGTH_PATH):
-        rna16s_seqs = ncbi_rna16s_get_seqs(rna16s_ids)
+        seqs = aerobot.entrez.download_rna16s_seqs(ids)
         
-        print(f'Writing full length sequences to file {RNA16S_FULL_LENGTH_PATH}')
+        print(f'Writing full-length 16S sequences to {RNA16S_FULL_LENGTH_PATH}')
         with open(RNA16S_FULL_LENGTH_PATH, 'w') as f:
-            SeqIO.write(rna16s_seqs, f, 'fasta')
+            SeqIO.write(seqs, f, 'fasta')
+
+    forward_primer, reverse_primer = get_primers()
+
+    # Load in the dictionary of sequences, and extract the region between the primers. 
+    seq_dict = SeqIO.to_dict(SeqIO.parse(RNA16S_FULL_LENGTH_PATH, 'fasta')) # I imagine the keys are IDs. 
+    # Remove duplicates to prevent leakage by removing the '.1' or '.2' suffixes. 
+    seq_dict = remove_duplicates(seq_dict)
+    seq_dict.pop('AE017261') # This sequence is like a billion base pairs long for some reason. 
+    seq_dict.pop('BX897699') # Ditto. 
 
     if not os.path.exists(RNA16S_V3_V4_REGIONS_PATH):
-        forward_primer, reverse_primer = get_primers()
-
-        # Load in the dictionary of sequences, and extract the region between the primers. 
-        seq_dict = SeqIO.to_dict(SeqIO.parse(RNA16S_FULL_LENGTH_PATH, 'fasta')) # How does this get loaded?
-
-        # i = 0
         v3_v4_seq_dict = dict()
-        for idx, record in tqdm(seq_dict.items(), desc='Aligning primers to full-length sequences...'):
+        for id_, record in tqdm(seq_dict.items(), desc='Aligning primers to full-length sequences...'):
             seq = str(record.seq).replace('-','').lower()
-            # Get the start and stop indices for the sub-sequence between the primers. 
+            # Get the start and stop indices for the sub-sequence between the primers.
             start, stop = get_amplicon(seq, forward_primer=forward_primer, reverse_primer=reverse_primer)
             record.seq = Seq(seq[start:stop]) # Slice the full-length sequence. 
-            v3_v4_seq_dict[idx] = record
+            v3_v4_seq_dict[id_] = record
         # Remove all sequences shorter than 350 nucleotides.  
         v3_v4_seq_dict = {i:s for i, s in v3_v4_seq_dict.items() if len(s.seq) > 350}
         
@@ -111,20 +131,18 @@ if __name__ == '__main__':
         with open(RNA16S_V3_V4_REGIONS_PATH, 'w') as f:
             SeqIO.write(v3_v4_seq_dict.values(), f, 'fasta')
 
+    rna16s_features = rna16s.from_fasta(RNA16S_V3_V4_REGIONS_PATH)
 
-    metadata_df = metadata_df[['GENBANK_16S_ID','OXYGEN_REQUIREMENT']] # Grab the relevant columns from the metadata DataFrame.
-    metadata_df = metadata_df[~metadata_df['GENBANK_16S_ID'].str.contains('(null)', regex=False)]
-    metadata_df = metadata_df[~metadata_df['GENBANK_16S_ID'].str.contains('(null)', regex=False)]
-    metadata_df.columns = ['id', 'label']
-    label_map = {'Anaerobe':'anaerobe', 'Aerobe':'aerobe', 'Facultative':'facultative', 'Obligate anaerobe':'anaerobe', 'Obligate aerobe':'aerobe','Facultative anaerobe':'facultative'}
-    metadata_df = metadata_df[metadata_df.label.isin(label_map)] # Filter for organisms with an oxygen label is in the map. 
-    metadata_df.label = metadata_df.label.replace(label_map)
+    dataset = {'embedding.rna16s':rna16s_features, 'metadata':metadata}
+    training_dataset, testing_dataset, validation_dataset = training_testing_validation_split(dataset) 
 
-    fasta_df = load_fasta(RNA16S_V3_V4_REGIONS_PATH)
-    # Addressing the data leakage problem.
-    fasta_df['id'] = [s.split('.')[0] for s in fasta_df.header.tolist()]
-    # Merge the sequences and metadata, and drop all duplicates. 
-    fasta_df = fasta_df.set_index('id').join(metadata_df.set_index('id')).dropna()
-    fasta_df = fasta_df[['seq', 'label']].drop_duplicates()
+    # Save each dataset to an HDF file.
+    print('Saving 16S RNA training data to', os.path.join(DATA_PATH, 'rna16s_training_dataset.h5'))
+    save_hdf(training_dataset, os.path.join(DATA_PATH, 'rna16s_training_dataset.h5'))
+    print('Saving 16S RNA validation data to', os.path.join(DATA_PATH, 'rna16s_validation_dataset.h5'))
+    save_hdf(validation_dataset, os.path.join(DATA_PATH, 'rna16s_validation_dataset.h5'))
+    print('Saving 16S RNA testing data to', os.path.join(DATA_PATH, 'rna16s_testing_dataset.h5'))
+    save_hdf(testing_dataset, os.path.join(DATA_PATH, 'rna16s_testing_dataset.h5'))
 
-    train_test_validation_split(fasta_df)
+
+

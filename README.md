@@ -5,4 +5,11 @@ Python classifier for predicting oxygen usage from bacterial and archaeal genome
   <img src="logo.png" alt="AEROBOT" title="AEROBOT" width="400" height="400"/>
 </p>
 
+# Aerobot
 
+## Installation
+
+
+### Data availability
+
+## Usage

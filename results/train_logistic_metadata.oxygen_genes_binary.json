@@ -1,1 +1,1 @@
-{"training_acc": 0.8807194955268727, "validation_acc": 0.8849936040933802, "classes": ["intolerant", "tolerant"], "confusion_matrix": [214, 22, 58, 366], "f1_score": 0.8803958282644138, "n_iter": 9, "converged": true, "C": 100, "penalty": "l2", "max_iter": 100000, "feature_type": "metadata.oxygen_genes", "model_class": "logistic", "binary": true}
+{"n_classes": 2, "train_acc": 0.8726241769720031, "val_acc": 0.9129950974067862, "test_acc": 0.8773273518772098, "confusion_matrix": [205, 21, 66, 367], "val_accs": null, "train_accs": null, "val_losses": null, "train_losses": null}

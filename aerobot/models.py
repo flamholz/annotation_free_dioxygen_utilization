@@ -9,263 +9,260 @@ from tqdm import tqdm
 from typing import Tuple, NoReturn, List, Dict
 from sklearn.linear_model import LogisticRegression
 import pandas as pd
+import copy 
+from aerobot.utils import DATA_PATH
+from sklearn.preprocessing import OneHotEncoder
 
 # Use a GPU if one is available. 
-if torch.cuda.is_available():
-    device = torch.device('cuda')
-else:
-    device = torch.device('cpu')
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+# TODO: Figure out why model training doesn't seem to be reproducible.
+
+def shuffle(X:np.ndarray, y:np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    '''Shuffle the input arrays without modifying them inplace.'''
+    shuffle_idxs = np.arange(len(X)) # Get indices to shuffle the inputs and labels. 
+    np.random.shuffle(shuffle_idxs)
+    return X[shuffle_idxs, :], y[shuffle_idxs, :]
 
 
-class Nonlinear(torch.nn.Module):
-    '''Two-layer neural network for classification.'''
-    def __init__(self, input_dim:int=None, 
-        weight_decay:float=0.01, 
-        hidden_dim:int=512, 
-        lr:float=0.0001, 
-        n_epochs:int=100, 
-        batch_size:int=16, 
-        alpha:int=10, 
-        early_stopping:bool=False, 
-        n_classes:int=3):
-        '''Initialize a Nonlinear classifier.
+def get_batches(X:np.ndarray, y:np.ndarray, batch_size:int=16) -> Tuple[np.ndarray, np.ndarray]:
+    '''Create batches of size batch_size from training data and labels.'''
+    # Don't bother with balanced batches. Doesn't help much with accuracy anyway.
+    n_batches = len(X) // batch_size + 1
+    return np.array_split(X, n_batches, axis=0), np.array_split(y, n_batches, axis=0)
 
-        :param input_dim: The dimensionality of input vectors. This is the number of nodes in the first linear layer.
-        :param weight_decay: The L2 regularization penalty to be passed into the Adam optimizer.
-        :param hidden_dim: The number of nodes in the second linear layer. 
-        :param lr: The learning rate.
+
+def process_outputs(output:np.ndarray):
+    '''Convert model outputs, which are Softmax-processed logits, to a Numpy array of zeros and ones. 
+    The output array can then be used with the inverse_transform method of the fitted encoder.'''
+    y_pred = np.zeros(output.shape)
+    # Find the maximum output in the three-value output, and set it to 1. Basically converting to a one-hot encoding.
+    for i in range(len(output)):
+        j = np.argmax(output[i])
+        y_pred[i, j] = 1
+    return y_pred 
+
+
+class BaseClassifier():
+
+    def __init__(self, n_classes:int=3):
+        '''Initialization function for a classifier.'''
+        torch.manual_seed(42) # Seed the RNG for reproducibility.
+        self.scaler = StandardScaler()
+        self.n_classes = n_classes # Should be either 2 or 3 for binary or ternary classification. 
+
+    def balanced_accuracy(self, X:np.ndarray, y:np.ndarray) -> float:
+        y_pred = self.predict(X).ravel()
+        return balanced_accuracy_score(y, y_pred)
+
+    def confusion_matrix(self, X:np.ndarray, y:np.ndarray) -> np.ndarray:
+        y_pred = self.predict(X)
+        return confusion_matrix(y, y_pred)
+
+    def classes(self):
+        if self.n_classes == 3:
+            return ['aerobe', 'anaerobe', 'facultative']
+        else:
+            return ['tolerant', 'intolerant']
+
+    def save(self, path:str) -> NoReturn:
+        '''Save the GeneralClassifier instance to a file.'''
+        joblib.dump((self), path)
+
+    @classmethod
+    def load(cls, path:str):
+        '''Load a saved GeneralClassifier object from a file.'''
+        return joblib.load(path)
+
+
+class RandomRelativeClassifier(BaseClassifier):
+
+    def __init__(self, level:str='Phylum', n_classes:int=3):
+        '''Initialize a RandomRelative classifier.'''
+        BaseClassifier.__init__(self, n_classes=n_classes)
+        self.taxonomy = pd.read_hdf(os.path.join(DATA_PATH, 'updated_all_datasets.h5'), key='labels')[[level, 'physiology']]
+        self.level = level
+        
+        if self.n_classes == 2: # If the task is binary classification...
+            label_map = {"Aerobe": "tolerant", "Facultative": "tolerant", "Anaerobe": "intolerant"}
+        elif self.n_classes == 3: # If the task is ternary classification...
+            label_map = {"Aerobe": "aerobe", "Facultative": "facultative", "Anaerobe": "anaerobe"}
+        self.taxonomy.physiology = self.taxonomy.physiology.replace(label_map) # Format the labels.
+
+    def predict(self, X:np.ndarray):
+        # Get the taxonomy label at self.level for each genome ID in X.
+        X_taxonomy = self.taxonomy.loc[X.ravel(), self.level].values
+        y_pred = []
+        for t in X_taxonomy:
+            relatives = self.taxonomy[self.taxonomy[self.level] == t] # Get all relatives at the specified level.
+            y_pred.append(np.random.choice(relatives.physiology.values)) # Choose a random physiology label from among the relatives. 
+        y_pred = np.array(y_pred).ravel()
+        return y_pred
+
+
+class BasePytorchClassifier(torch.nn.Module, BaseClassifier):
+
+    def __init__(self, n_epochs:int=None, batch_size:int=None, n_classes:int=None):
+        '''Initialize a classifier using PyTorch.
+
         :param n_epochs: The maximum number of epochs to train the classifier. 
         :param batch_size: The size of the batches for model training. 
         :param n_classes: The number of classes. This is the output dimension of the second linear layer. 
         '''        
-        torch.manual_seed(42) # Seed the RNG for reproducibility.
-        super().__init__()
+        BaseClassifier.__init__(self, n_classes=n_classes)
+        torch.nn.Module.__init__(self)
 
         self.val_accs, self.train_accs, self.train_losses, self.val_losses = [], [], [], []
+
         self.n_epochs = n_epochs
         self.batch_size = batch_size
-        self.input_dim = input_dim
-        self.hidden_dim = hidden_dim
-        self.weight_decay = weight_decay
-        self.classes_ = None # Will be populated later, for consistency with LogisticRegression model.
-        self.n_classes = n_classes
         self.encoder = sklearn.preprocessing.OneHotEncoder(handle_unknown='error', sparse_output=False)
-        self.lr = lr
-        self.alpha = alpha
 
-        
-        self.classifier = torch.nn.Sequential(
-            torch.nn.Linear(input_dim, hidden_dim),
-            torch.nn.ReLU(),
-            torch.nn.Linear(hidden_dim, self.n_classes)).to(device)
-
-        self.optimizer = torch.optim.Adam(self.classifier.parameters(), lr=lr, weight_decay=weight_decay)
-        
-
-    def _get_batches(self, X:np.ndarray, y:np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        '''Create batches of size batch_size from training data and labels.'''
-        # Don't bother with balanced batches. Doesn't help much with accuracy anyway.
-        n_batches = len(X) // self.batch_size + 1
-        X_batches = np.array_split(X, n_batches, axis=0)
-        y_batches = np.array_split(y, n_batches, axis=0)
-        return X_batches, y_batches
-
-    @staticmethod
-    def shuffle(X:np.ndarray, y:np.ndarray):
-        shuffle_idxs = np.arange(len(X)) # Get indices to shuffle the inputs and labels. 
-        np.random.shuffle(shuffle_idxs)
-        X = X[shuffle_idxs, :]
-        y = y[shuffle_idxs, :]
-        return X, y
 
     def forward(self, X:np.ndarray) -> torch.FloatTensor:
         '''A forward pass of the model.'''
         X = torch.FloatTensor(X).to(device) # Convert numpy array to Tensor. Make sure it is on the GPU, if available.
         return self.classifier(X)
-        
-    def balanced_accuracy(self, X:np.ndarray, y:np.ndarray):
-        y_pred = self.predict(X)
-        return balanced_accuracy_score(y.ravel(), y_pred.ravel())
-    
-    def loss_func(self, y_pred:torch.FloatTensor, y:torch.FloatTensor, weight:torch.FloatTensor=None):
-        '''Implement the loss function specified on initialization. The addition of this function wrapper allows weights
-        to be easily discarded if mean-squared error is used.
-        
-        :param y_pred: A torch FloatTensor of shape (n, self.n_classes), where n is the number of elements in the batch, dataset, etc.
-        :param y: A torch FloatTensor of shape (n, self.n_classes), where n is the number of elements in the batch, dataset, etc.
-        '''
-        weight = torch.FloatTensor([1, 1, 1]) if weight is None else weight
-        # Make sure to apply the softmax, which is done automatically when using cross-entropy loss. 
-        y_pred = torch.nn.functional.softmax(y_pred, dim=1)
-        # y_pred = (y * y_pred).sum(axis=1, keepdims=True) # Only keep prediction elements which are nonzero by treating target array like a mask. 
+
+    def classes(self):
+        return self.encoder.categories_[0]
+
+    def _loss(self, y_pred, y, weight:None):
+        raise(NotImplementedError) 
+
+    def _acc(self, X:np.ndarray, y:np.ndarray) -> float:
+        y = self.encoder.inverse_transform(y)
+
+        output = self(X).detach().numpy() # Convert output tensor to numpy array. 
+        y_pred = process_outputs(output)
+        y_pred = self.encoder.inverse_transform(y_pred).ravel()
+        # Can't use the predict function here, as it applies the StandardScaler twice. 
+        # y_pred = self.classifier.predict(X) # We want the decoded outputs. 
+
+        return balanced_accuracy_score(y, y_pred) 
+
+    def _loss(self, y_pred, y, weight:np.ndarray=None):
+        '''Implement the loss function specified on initialization.'''
+        # Make sure everything is FloatTensors.
+        y_pred = torch.FloatTensor(y_pred)
+        y = torch.FloatTensor(y)
+        weight = torch.FloatTensor([1] * self.n_classes) if weight is None else torch.FloatTensor(weight)
         # Get a 16-dimensional column vector of weights for each row. 
         weight = torch.matmul(y, weight.reshape(self.n_classes, 1))
-        return torch.mean((y - y_pred)**2 * weight) 
+        return torch.mean((y - y_pred)**2 * weight)
 
-    def fit(self, X:np.ndarray, y:np.ndarray, X_val:np.ndarray=None, y_val:np.ndarray=None, verbose:bool=True):
-        '''Train the nonlinear classifier on input data.'''
+    def fit(self, X:np.ndarray, y:np.ndarray, X_val:np.ndarray, y_val:np.ndarray):
+        '''Train the classifier on input data.'''
 
-        y_enc = self.encoder.fit_transform(y.reshape(-1, 1)) # One-hot encode the training targets. 
-        y_val_enc = y_val if (y_val is None) else self.encoder.transform(y_val.reshape(-1, 1)) 
-        
-        # self.classes_ = self.encoder.categories_[0] # Extract categories from the one-hot encoder. 
-        self.classes_ = self.encoder.categories_[0] # Extract categories from the one-hot encoder. 
-        self.weight = torch.FloatTensor([1 / (np.sum(y == c) / len(y)) for c in self.classes_]) # Compute loss weights as the inverse frequency.
+        X = self.scaler.fit_transform(X)
+        y = self.encoder.fit_transform(y.reshape(-1, 1)) # One-hot encode the training targets. 
+        X_val = self.scaler.transform(X_val)
+        y_val = self.encoder.transform(y_val.reshape(-1, 1))
+ 
+        # Compute loss weights as the inverse frequency.
+        weight = [1 / (np.sum(self.encoder.inverse_transform(y) == c) / len(y)) for c in self.encoder.categories_[0]] 
 
-        self.best_model_weights = None 
-        self.best_val_acc = 0
+        best_epoch, best_model_weights = 0, copy.deepcopy(self.state_dict()) 
 
-        self.train() # Model in train mode.  
-        for epoch in tqdm(range(self.n_epochs), desc='Training NonlinearClassifier...', disable=not verbose):
-            X_trans, y_trans = Nonlinear.shuffle(X, y_enc) # Shuffle the transformed data. 
-            X_batches, y_batches = self._get_batches(X, y_enc) 
-            for X_batch, y_batch in zip(X_batches, y_batches):
-                y_pred = self(X_batch)
-                train_loss = self.loss_func(y_pred, torch.FloatTensor(y_batch).to(device), weight=self.weight)
+        self.train() # Model in train mode. 
+
+        for epoch in tqdm(range(self.n_epochs), desc='Training classifier...'):
+
+            X, y = shuffle(X, y) # Shuffle the transformed data. 
+            for X_batch, y_batch in zip(*get_batches(X, y)):
+                y_pred = self(X_batch) # Output will have two or three dimensions, depending on n_classes.
+                train_loss = self._loss(y_pred, torch.FloatTensor(y_batch).to(device), weight)
                 self.optimizer.zero_grad()
                 train_loss.backward()
                 self.optimizer.step()
               
-            self.train_losses.append(self.loss_func(self(X), torch.FloatTensor(y_enc), weight=self.weight).item()) # Store the average weighted train losses over the epoch. 
-            self.train_accs.append(self.balanced_accuracy(X, y)) # Store model accuracy on the training dataset. 
+            self.train_losses.append(self._loss(self(X), y, weight).item()) # Store the average weighted train losses over the epoch. 
+            self.train_accs.append(self._acc(X, y)) # Store model accuracy on the training dataset. 
+            self.val_losses.append(self._loss(self(X_val), y_val).item()) # Store the unweighted loss on the validation data.
+            self.val_accs.append(self._acc(X_val, y_val)) # Store model accuracy on the validation dataset. 
 
-            self.val_losses.append(self.loss_func(self(X_val), torch.FloatTensor(y_val_enc)).item()) # Store the unweighted loss on the validation data.
-            self.val_accs.append(self.balanced_accuracy(X_val, y_val)) # Store model accuracy on the validation dataset. 
+            if self.val_accs[-1] >= max(self.val_accs):
+                best_epoch = epoch
+                best_model_weights = copy.deepcopy(self.state_dict())
 
+        self.load_state_dict(best_model_weights) # Load the best enountered model weights.
+        self.best_epoch = best_epoch 
+        print(f'PyTorchClassifier.fit: Best validation accuracy of {np.round(max(self.val_accs), 2)} achieved at epoch {self.best_epoch}.')
 
-            self.train() # Make sure to put the model back into training mode, as the predict function switches to evaluation mode. 
-
-    def predict(self, X:np.ndarray, label_output:bool=True) -> np.ndarray:
-        self.eval() # Model in evaluation mode.
-        output = self(X)
-
-        def parse_output(output:np.ndarray) -> np.ndarray:
-            # Softmax is included in loss function, so needs to be applied here if output is not being fed into self.loss_func.
-            output = torch.nn.functional.softmax(output, dim=1)
-            output = output.detach().numpy() # Convert output tensor to numpy array. 
-            y_pred = np.zeros(output.shape)
-            # Find the maximum output in the three-value output, and set it to 1. Basically converting to a one-hot encoding.
-            for i in range(len(output)):
-                j = np.argmax(output[i])
-                y_pred[i, j] = 1
-            return self.encoder.inverse_transform(y_pred)
-        
-        return parse_output(output) if label_output else output
-
-
-class GeneralClassifier():
-
-    # Default parameters for the logistic-based classifier. 
-    logistic_default_params = {'C':100, 'max_iter':100000, 'penalty':'l2'}
-
-    def __init__(self, model_class, params:Dict[str, object]=dict(), normalize:bool=True):
-        '''Initialization function for a general classifier.
-
-        :param model_class: Model class to fit. The class must implement the fit, predict, and score methods. 
-        :param params: A dictionary of parameters to pass into the model_class instantiator.
-        :param normalize: Whether or not to standardize the input data.
-        '''
-        # Fill in default parameters for the LogisticRegression-based model if none are specified. 
-        if model_class == LogisticRegression: # Can't use isinstance here, because it's not an instance yet. 
-            params.update({k:v for k, v in GeneralClassifier.logistic_default_params.items() if k not in params})
-
-        self.classifier = model_class(**params) if params else model_class()
-        self.scaler = StandardScaler() if normalize else None
-        self.n_classes = None # To be populated after fitting the model, indicated binary or ternary classification. 
-
-    def fit(self, X:np.ndarray, y:np.ndarray, X_val:np.ndarray=None, y_val:np.ndarray=None):
-        '''Fit the underlying model to training data.'''
-
-        X = X if (not self.scaler) else self.scaler.fit_transform(X) # Standardize the input, if specified.
-        self.n_classes = len(np.unique(y)) # Get the number of classes. 
-
-        if (X_val is not None) and (y_val is not None):
-            X_val = X_val if (not self.scaler) else self.scaler.transform(X_val)
-            # X_val = X_val if (not self.scaler) else self.scaler.fit_transform(X_val)
-            self.classifier.fit(X, y, X_val=X_val, y_val=y_val)
-        else:
-            self.classifier.fit(X, y)
 
     def predict(self, X:np.ndarray) -> np.ndarray:
-        X = X if (not self.scaler) else self.scaler.transform(X) # Standardize the input, if specified.
+        self.eval() # Model in evaluation mode.
+        X = self.scaler.transform(X) # Don't forget to Z-score scale the data!
+        output = self(X).detach().numpy() # Convert output tensor to numpy array. 
+        y_pred = process_outputs(output)
+        self.train()
+        return self.encoder.inverse_transform(y_pred).ravel()
+
+
+class LogisticClassifier(BaseClassifier):
+
+    def __init__(self, n_classes:int=3):
+
+        BaseClassifier.__init__(self, n_classes=n_classes)
+        # Use the legacy parameters from before my time on this project.
+        self.classifier = LogisticRegression(penalty='l2', C=100, max_iter=100000)
+
+    def fit(self, X:np.ndarray, y:np.ndarray) -> NoReturn:
+
+        X = self.scaler.fit_transform(X) # Don't forget to Z-scale!
+        self.classifier.fit(X, y)
+
+    def predict(self, X:np.ndarray) -> np.ndarray:
+
+        X = self.scaler.transform(X)
         return self.classifier.predict(X)
 
-    def balanced_accuracy(self, X:np.ndarray, y:np.ndarray) -> float:
-        X = X if (not self.scaler) else self.scaler.transform(X) # Standardize the input, if specified.
-        y_pred = self.classifier.predict(X)
-        return balanced_accuracy_score(y, y_pred)
-
-    def confusion_matrix(self, X:np.ndarray, y:np.ndarray) -> np.ndarray:
-        X = X if (not self.scaler) else self.scaler.transform(X) # Standardize the input, if specified.
-        y_pred = self.classifier.predict(X)
-        return confusion_matrix(y, y_pred)
-
-    def f1_score(self, X:np.ndarray, y:np.ndarray) -> float:
-        '''Compute the F1 score, which is defined as tp / (tp + 0.5 * (fp + fn)), or 2 / (1/precition + 1/recall) for a binary classification problem.
-        For a ternary classification problem, use a one-versus-all approach to compute the individual scores for each class, and
-        then taking the average (which can be weighted).'''
-        X = X if (not self.scaler) else self.scaler.transform(X) # Standardize the input, if specified.
-        y_pred = self.classifier.predict(X).ravel()
-        # return f1_score(y, y_pred, average='weighted' if self.n_classes > 2 else 'binary')
-        return f1_score(y, y_pred, average='weighted')
-
-    def save(self, path:str) -> NoReturn:
-        '''Save the GeneralClassifier instance to a file.
-
-        :param path: The location where the object will be stored.
-        '''
-        joblib.dump((self.classifier, self.scaler), path)
-
-    @classmethod
-    def load(cls, path:str):
-        '''Load a saved GeneralClassifier object from a file.
-
-        :param path: The path to the file where the object is stored.
-        :return: A GeneralClassifier instance.
-        '''
-        classifier, scaler = joblib.load(path)
-        # Need to pass keyword arguments for the Nonlinear classifier.
-        if isinstance(classifier, Nonlinear):
-            kwargs = ['input_dim', 'hidden_dim'] # Arguments required for initializer to not throw an error. 
-            params = {k:getattr(classifier, k) for k in kwargs}
-            instance = cls(model_class=type(classifier), params=params)
-        elif isinstance(classifier, LogisticRegression):
-            instance = cls(model_class=type(classifier))
-        instance.classifier = classifier
-        instance.scaler = scaler
-        return instance
 
 
-def evaluate(model:GeneralClassifier, X:np.ndarray, y:np.ndarray, X_val:np.ndarray, y_val:np.ndarray) -> Dict:
-    '''Evaluate a trained GeneralClassifier using the training and test data.
+class LinearClassifier(BasePytorchClassifier):
 
-    :param model: The trained GeneralClassifier to evaluate.
-    :param X: A numpy array containing the training features.
-    :param y: A numpy array containing the training labels.
-    :param X_val: A numpy array containing the validation features.
-    :param y_val: A numpy array containing the validation labels. 
-    :return: A dictionary containing various evaluation metrics for the trained classifier on the training
-        and validation data.
-    '''
-    results = dict()
+    def __init__(self, 
+        input_dim:int=None, 
+        output_dim:int=None, 
+        lr:float=0.01, 
+        n_epochs:int=100, 
+        batch_size:int=16):
+        '''Initialize a Nonlinear classifier.'''        
+        BasePytorchClassifier.__init__(self, n_epochs=n_epochs, n_classes=output_dim, batch_size=batch_size)
+        self.classifier = torch.nn.Sequential(torch.nn.Linear(input_dim, output_dim), torch.nn.Softmax(dim=1))
+        
+        # Set weight_decay to correspond to the regularization strength of the LogisticClassifier.
+        self.optimizer = torch.optim.Adam(self.classifier.parameters(), lr=lr, weight_decay=0.01)
 
-    results['training_acc'] = model.balanced_accuracy(X, y)
-    results['validation_acc'] = model.balanced_accuracy(X_val, y_val)
-    results['classes'] = model.classifier.classes_
-    results['confusion_matrix'] = model.confusion_matrix(X_val, y_val).ravel()
-    results['f1_score'] = model.f1_score(X_val, y_val)
 
-    if isinstance(model.classifier, LogisticRegression): # Only applies if the model used LogisticRegression.
-        n_iter = model.classifier.n_iter_[0]
-        results['n_iter'] = n_iter
-        results['converged'] = n_iter < model.classifier.max_iter
-
-    if isinstance(model.classifier, Nonlinear): # If the underlying model is Nonlinear...
-        # Save some information for plotting training curves.
-        results['training_losses'] = model.classifier.train_losses
-        results['validation_losses'] = model.classifier.val_losses
-        results['training_accs'] = model.classifier.train_accs
-        results['validation_accs'] = model.classifier.val_accs
+class NonlinearClassifier(BasePytorchClassifier):
+    '''Two-layer neural network for classification.'''
+    def __init__(self, 
+        input_dim:int=None, 
+        hidden_dim:int=512, 
+        output_dim:int=None, 
+        lr:float=0.0001, 
+        n_epochs:int=100, 
+        batch_size:int=16):
+        '''Initialize a Nonlinear classifier.'''        
+        # BasePytorchClassifier.__init__(self, n_epochs=n_epochs, n_classes=output_dim, batch_size=batch_size)
+        super().__init__(n_epochs=n_epochs, n_classes=output_dim, batch_size=batch_size)
+        
+        # NOTE: SoftMax is applied automatically when using the torch CrossEntropy loss function. 
+        # Because we are using a custom loss function, we need to apply SoftMax here.
+        self.classifier = torch.nn.Sequential(
+            torch.nn.Linear(input_dim, hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Linear(hidden_dim, self.n_classes),
+            torch.nn.Softmax(dim=1)).to(device)
+        
+        # Set weight_decay to correspond to the regularization strength of the LogisticClassifier.
+        self.optimizer = torch.optim.Adam(self.classifier.parameters(), lr=lr, weight_decay=0.01)
     
-    return results
+
+    # def fit(self, X:np.ndarray, y:np.ndarray, X_val:np.ndarray, y_val:np.ndarray):
+    #     _loss = lambda X, y, w : self._loss(X, y, w)
+    #     return self._fit(X, y, X_val, y_val, _loss=_loss)
+    
+
 

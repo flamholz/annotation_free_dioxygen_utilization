@@ -2,11 +2,13 @@
 import pandas as pd
 import unittest
 from aerobot.io import DATA_PATH, FEATURE_TYPES
-from aerobot.dataset import dataset_load_training_validation
+from aerobot.dataset import dataset_load_training_testing_validation
 from parameterized import parameterized
 import numpy as np
+import math
 
 # TODO: Add "sanity check" test cases for organisms which we KNOW should be facultative, aerobe, etc.
+
 
 class DatasetTests(unittest.TestCase):
     '''Unit tests for the training and validation data representations.'''
@@ -34,9 +36,9 @@ class DatasetTests(unittest.TestCase):
         # I doubt this is happening, but just want to confirm. 
   
         # Load in the training and testing datasets as numpy arrays.
-        training_dataset, validation_dataset = dataset_load_training_validation(feature_type, to_numpy=True)
+        datasets = dataset_load_training_testing_validation(feature_type, to_numpy=True)
         # Make sure everything is actually a numpy array of floats (or strings, in the case of labels).
-        for dataset in [training_dataset, validation_dataset]:
+        for dataset in datasets.values():
             features_dtype = dataset['features'].dtype
             labels_dtype = dataset['labels'].dtype
             self.assertTrue(features_dtype == np.float32, msg=f'Observed feature data type is {features_dtype}, expected np.float32.')
@@ -45,24 +47,32 @@ class DatasetTests(unittest.TestCase):
     @parameterized.expand(FEATURE_TYPES)
     def test_feature_type_datasets(self, feature_type:str):
         # Load in the training and validation sets as pandas DataFrames.
-        training_dataset, validation_dataset = dataset_load_training_validation(feature_type, to_numpy=False)
-        # Run a series of tests checking for consistency within each dataset.
-        for dataset in [training_dataset, validation_dataset]:
+        datasets = dataset_load_training_testing_validation(feature_type, to_numpy=False)
+        for dataset in datasets.values(): # Run a series of tests checking for consistency within each dataset.
             self._test_more_labels_than_features(**dataset)
             self._test_label_and_feature_indices_match(**dataset)
             self._test_no_duplicate_entries(**dataset)
             self._test_no_nan_entries(**dataset)
 
     @parameterized.expand(FEATURE_TYPES)
-    def test_training_and_validation_sets_are_disjoint(self, feature_type:str):
+    def test_datasets_are_disjoint(self, feature_type:str):
         # Load in the training and validation sets as pandas DataFrames
-        training_dataset, validation_dataset = dataset_load_training_validation(feature_type, to_numpy=False)
-        training_ids = training_dataset['labels'].index
-        validation_ids = validation_dataset['labels'].index
+        datasets = dataset_load_training_testing_validation(feature_type, to_numpy=False)
+        train_ids, val_ids, test_ids = datasets['training']['features'].index, datasets['validation']['features'].index, datasets['testing']['features'].index
         # Already testing for no duplicate entries, so assume elements in training_ids and validation_ids are already unique.
-        all_ids = np.concatenate([training_ids, validation_ids]).ravel()
+        all_ids = np.concatenate([train_ids, val_ids, test_ids]).ravel()
         # Make sure there are no IDs in the training and validation datasets.
         self.assertTrue(len(all_ids) == len(np.unique(all_ids)))
+
+    @parameterized.expand(FEATURE_TYPES)
+    def test_datasets_are_the_correct_size(self, feature_type:str):
+        datasets = dataset_load_training_testing_validation(feature_type, to_numpy=False)
+        train_size, val_size, test_size = len(datasets['training']['features']), len(datasets['validation']['features']), len(datasets['testing']['features'])
+        N = train_size + val_size + test_size 
+
+        self.assertTrue(math.isclose(test_size/N, 0.2, abs_tol=0.1), msg=f'Testing data is {np.round(test_size/N, 2)} of total data.')
+        self.assertTrue(math.isclose(train_size/N, 0.8 * 0.8, abs_tol=0.1), msg=f'Training data is {np.round(train_size/N, 2)} of total data.')
+        self.assertTrue(math.isclose(val_size/N, 0.16, abs_tol=0.1), msg=f'Validation data is {np.round(val_size/N, 2)} of total data.')
 
 if __name__ == '__main__':
     unittest.main()

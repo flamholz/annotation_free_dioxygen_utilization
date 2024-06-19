@@ -1,10 +1,8 @@
-'''A script for training a Nonlinear-based or Logistic-based GeneralClassifier.'''
 import pandas as pd
 import numpy as np
-import tqdm
-from aerobot.io import MODELS_PATH, RESULTS_PATH, FEATURE_TYPES
-from aerobot.dataset import dataset_clean_features
-from aerobot.models import GeneralClassifier
+from aerobot.utils import MODELS_PATH, RESULTS_PATH, FEATURE_TYPES
+from aerobot.dataset import FeatureDataset
+from aerobot.models import BaseClassifier
 from sklearn.linear_model import LogisticRegression
 import os
 import argparse
@@ -19,20 +17,17 @@ simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', '-m', type=str, help='Name of the pre-trained model to use. Expected to be stored in the models directory.')
-    parser.add_argument('--input-path', '-i', type=str, help='Path to the data on which to run the trained model. This should be in CSV format.')
+    parser.add_argument('--model-path', type=str, help='Name of the pre-trained model to use. Expected to be stored in the models directory.')
+    parser.add_argument('--input-path', '-i', type=str, help='Path to the dataset. This should be stored in an H5 file.')
     parser.add_argument('--feature-type', '-f', type=str, default='aa_3mer', choices=FEATURE_TYPES, help='The feature type of the data.')
     parser.add_argument('--output-path', '-o', type=str, default=None, help='The location to which the predictions will be written.')
 
     args = parser.parse_args()
     t1 = time.perf_counter()
 
-    data = pd.read_csv(args.input_path, index_col=0) # Need to preserve the index, which is the genome ID.
-    data = dataset_clean_features(data, feature_type=args.feature_type) # Make sure the feature ordering is correct. 
-
-    model_path = os.path.join(MODELS_PATH, args.model)
-    model = GeneralClassifier.load(model_path) # Load the trained model. 
-    X = data.values # Extract the raw data from the input DataFrame.
+    dataset = FeatureDataset(data, feature_type=args.feature_type) # Make sure the feature ordering is correct. 
+    X, y = dataset.to_numpy # Extract the raw data from the input DataFrame.
+    model = BaseClassifier.load(args.model)
     y_pred = model.predict(X)
 
     results = pd.DataFrame(index=data.index) # Make sure to add the index back in!

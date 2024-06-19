@@ -1,4 +1,4 @@
-letter_code,full_name,short_name,NC,NN,NS,NO,formula,NOSC,MW,polar_requirement,hydropathy,molecular_volume,isoelectric_point
+letter_code,full_name,short_name,num_carbon,num_nitrogen,num_sulfur,num_oxygen,formula,ox_state_carbon,MW,polar_requirement,hydropathy,molecular_volume,isoelectric_point
 A,Alanine,ala,3,1,0,2,C3H7NO2,0,89.0935,7,1.8,31,6
 R,Arginine,arg,6,4,0,2,C6H15N4O2+,0.33,174.2017,9.1,-4.5,124,10.76
 N,Asparagine,asn,4,2,0,3,C4H8N2O3,1,132.1184,10,-3.5,56,5.41

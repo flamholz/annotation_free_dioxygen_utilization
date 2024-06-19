@@ -1,1 +1,1 @@
-{"training_acc": 1.0, "validation_acc": 0.914974416373521, "classes": ["intolerant", "tolerant"], "confusion_matrix": [207, 29, 20, 404], "f1_score": 0.9254258348204532, "n_iter": 620, "converged": true, "C": 100, "penalty": "l2", "max_iter": 100000, "feature_type": "embedding.genome", "model_class": "logistic", "binary": true}
+{"n_classes": 2, "train_acc": 1.0, "val_acc": 0.9083263449877435, "test_acc": 0.9066811093625458, "confusion_matrix": [200, 26, 31, 402], "val_accs": null, "train_accs": null, "val_losses": null, "train_losses": null}

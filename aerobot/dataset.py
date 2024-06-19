@@ -1,199 +1,113 @@
-
-'''Code for loading and processing the training and validation datasets created by the build_datasets script.'''
 import pandas as pd
 import numpy as np
 import os
 import subprocess as sb
 import wget
-from typing import Dict, NoReturn, Tuple
-from aerobot.io import load_hdf, FEATURE_TYPES, DATA_PATH
-import json
-
-# TODO: Should constant-sum scaling happen before or after removal of the X amino acids? And before or after we
-# filter the k-mers in the validation datasets (EMP and Black Sea)?
-
-# Issue I see with normalizing after filtering by k-mers is that it might make it seem like some k-mers are a more
-# important part of the input sequence than they actually are, i.e. it will bias the normalized vector in favor of the
-# k-mers we are selecting. I think it might be best to normalize prior to filtering features. 
-
-# TODO: Another question is when to drop the feature columns with NaNs. There is a possibility that columns with NaNs in the training
-# and validation sets may not align. I think it might be best to drop NaN columns in the training set and then fill with zeros for the
-# validation set to avoid data leakage. If we use the validation set to select which features we train on, that is data leakage.
+from typing import Dict, NoReturn, Tuple, List
+from aerobot.utils import FEATURE_TYPES, DATA_PATH, AMINO_ACIDS, NUCLEOTIDES
+import re
 
 
-
-def dataset_align(dataset:Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
-    '''Align the features and labels in a dataset, so that the indices match.
-    
-    :param dataset: A dictionary with two keys, 'features' and 'labels', each of which map to a pandas
-        DataFrame containing the feature and label data, respectively.
-    :return: The input datset with the indices in the features and labels DataFrames matched and aligned.
-    '''
-    features, labels = dataset['features'], dataset['labels'] # Unpack the stored DataFrames.
-    n = len(features) # Get the original number of elements in the feature DataFrame for checking later. 
-    features, labels  = features.align(labels, join='inner', axis=0) # Align the indices.
-
-    # Make sure everything worked as expected.
-    assert np.all(np.array(features.index) == np.array(labels.index)), 'dataset_align: Indices in training labels and data do not align.'
-    assert len(features) == n, f'dataset_align: {n - len(features)} rows of data were lost during alignment.'
-
-    return {'features':features, 'labels':labels} # Return the aligned dataset.
-
-
-def dataset_normalize(dataset:Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
-    '''Apply constant-sum scaling to the rows in the dataset.
-
-    :param dataset
-    :return: A dataset with constant-sum normalized rows. 
-    '''
-    dataset['features'] = dataset['features'].apply(lambda row : row / row.sum(), axis=1)
-    #assert np.all(dataset['features'].values.sum(axis=1) == 1), 'dataset_normalize: Normalization failed.'
-    return dataset
-
-
-def dataset_to_numpy(dataset:Dict[str, pd.DataFrame]) -> Dict[str, np.ndarray]:
-    '''Convert the input dataset, which is a dictionary of pandas DataFrames, to a dictionary mapping
-    'features' and 'labels' to numpy arrays. The 'labels' array contains only the values in the 
-    physiology column.
-    
-    :param dataset: A dictionary with two keys, 'features' and 'labels', each of which map to a pandas
-        DataFrame containing the feature and label data, respectively.
-    :return: The input dataset with the DataFrames converted to numpy arrays. The the feature array is of 
-        type is np.float32 and size (n, d) where n is the number of entries and d is the feature dimension.
-        The labels array is one dimensional and of length n, and is of type np.object_.
-    '''
-    numpy_dataset = dict() # Create a new dataset.
-    numpy_dataset['features'] = None if dataset['features'] is None else dataset['features'].values # .astype(np.float32)
-    numpy_dataset['labels'] = dataset['labels'].physiology.values
-    return numpy_dataset
-
-
-def dataset_clean(dataset:Dict[str, pd.DataFrame], feature_type:str=None, binary:bool=False) -> Tuple[Dict]:
-    '''Clean up the input dataset by doing the following.
-        (1) Formatting the physiology labels for ternary or binary classification. 
-        (2) Standardizing the feature set and order. The reference set of features against which all datasets are standardized
-            are the non-NaN columns in the training set; see dataset_load_feature_order for more information.
-        (3) Filling all remaining NaNs in the dataset with 0.
-        (4) Aligning the feature and label indices.
-
-    :param dataset: A dictionary with two keys, 'features' and 'labels', each of which map to a pandas
-        DataFrame containing the feature and label data, respectively.
-    :param feature_type: The feature type of the dataset. 
-    :param binary: Whether or not to use the binary training labels. If False, the ternary labels are used.
-    :return: The cleaned-up dataset.
-    '''
-    # Select a label map for the binary or ternary classification task.
-    if binary:
-        label_map = {"Aerobe": "tolerant", "Facultative": "tolerant", "Anaerobe": "intolerant"}
+def is_normalizable_feature_type(feature_type:str):
+    if re.match(r'aa_(\d)mer', feature_type) is not None:
+        return True
+    # NOTE: nt_ is in "percent_oxygen_genes," so need to be careful here!
+    if re.match(r'nt_(\d)mer', feature_type) is not None:
+        return True 
+    if re.match(r'cds_(\d)mer', feature_type) is not None:
+        return True
     else:
-        label_map = {"Aerobe": "aerobe", "Facultative": "facultative", "Anaerobe": "anaerobe"}
-    dataset['labels'].physiology = dataset['labels'].physiology.replace(label_map) # Format the labels.
-
-    if dataset['features'] is not None:
-        # Ensure that the column ordering in the dataset matches the reference. This should remove
-        # all columns which were NaN in the training set. 
-        dataset['features'] = dataset['features'][dataset_load_feature_order(feature_type)]
-        dataset['features'] = dataset['features'].fillna(0) # Fill in remaining NaNs with zeros. 
-        dataset = dataset_align(dataset) # Align the features and labels indices.
-
-    return dataset
+        return False 
 
 
-def dataset_load(path:str, feature_type:str=None, normalize:bool=True) -> Dict:
-    '''Load a dataset for a particular feature type from the specified path. No filtering is applied to any of the
-    features in the dataset at this point. 
-    
-    :param feature_type: Feature type to load from the HDF file. If None, genome IDs are used 
-        as the feature type (for working with MeanRelative classifiers).
-    :param path: Path to the HDF dataset to load. 
-    :return: A dictionary with keys 'features' and 'labels' containing the feature data and metadata.
-    '''
-    subtype = None
-    assert feature_type in FEATURE_TYPES + [None], f'dataset_load: Input feature type {feature_type} is invalid.'
-        
-    dataset = load_hdf(path, feature_type=feature_type) # Read from the HDF file.
-    dataset['features'] = None if dataset['features'] is None else dataset['features'].astype(np.float32)
-    # If the normalize option is specified, and the feature type is "normalizable," then normalize the rows.
-    is_normalizable_feature_type = (feature_type is not None) and (('aa_' in feature_type) or ('nt_' in feature_type) or ('cds_' in feature_type))
-    if normalize and is_normalizable_feature_type:
-        dataset = dataset_normalize(dataset)
-
-    return dataset
-
-
-def dataset_get_features(dataset:Dict[str, pd.DataFrame]) -> np.ndarray:
-    '''Extract the names of the columns in the features DataFrame for a given dataset.
-
-    :param dataset: A dictionary with two keys, 'features' and 'labels', each of which map to a pandas
-        DataFrame containing the feature and label data, respectively.
-    :return: A numpy array of features in the same order as the columns in the features DataFrame. 
-    '''
-    assert isinstance(dataset['features'], pd.DataFrame), 'dataset_get_features: Input dataset must contain DataFrames.'
-    features = dataset['features'].columns
-    return features.to_numpy()
-
-
-def dataset_load_feature_order(feature_type:str) -> np.ndarray:
-    '''Load the columns ordering for a particular feature type. This function returns columns ordered
-    in the same way as the training dataset, which is used as a reference throughout the project.
-
-    :param feature_type: The feature type for which to load data.
-    :return: A numpy array of features, which are the columns of the features DataFrame for the input feature type. 
-    '''
-    dataset = dataset_load(os.path.join(DATA_PATH, 'updated_training_datasets.h5'), feature_type=feature_type) # Load the training dataset. 
+def load_feature_order(feature_type:str) -> np.ndarray:
+    feature_order = pd.read_hdf(os.path.join(DATA_PATH, 'training_datasets.h5'), key=feature_type).columns # Load the training dataset. 
     # Remove ambiguous bases and amino acids. The removed symbols indicate that the base or amino acid is unknown, and 
     # do not occur very frequently. 
+
+    def is_valid_aa_feature(f):
+        return np.all([aa in AMINO_ACIDS] for aa in f)
+    
+    def is_valid_nt_feature(f):
+        return np.all([aa in NUCLEOTIDES] for aa in f)
+
     if ('aa_' in feature_type): 
-        for a in ['B', '*', 'Z', 'X', 'U', 'J']:
-            dataset['features'] = dataset['features'][[f for f in dataset['features'].columns if a not in f]]
+        feature_order = [f for f in feature_order if is_valid_aa_feature(f)]
     if ('nt_' in feature_type) or ('cds_' in feature_type):
-        for n in ['N', 'Y', 'R', 'W', 'K', 'M', 'S', 'D', 'B', 'V', 'H']:
-            dataset['features'] = dataset['features'][[f for f in dataset['features'].columns if n not in f]]
-    return dataset_get_features(dataset)
+        feature_order = [f for f in feature_order if is_valid_nt_feature(f)]
+
+    return feature_order
 
 
-def dataset_load_training_validation(feature_type:str, binary:bool=False, to_numpy:bool=True, normalize:bool=True) -> Tuple[Dict]:
-    '''Load training and validation datasets for the specified feature type.
+class FeatureDataset():
 
-    :param feature_type: The feature type for which to load data.
-    :param binary: Whether or not to use the binary training labels. If False, the ternary labels are used.
-    :param to_numpy: Whether or not to convert the feature sets to numpy ndarrays for model compatibility.
-    :param normalize: Whether or not to constant-sum scale the k-mer counts. This will only be applied if the feature type is "normalizable."
-    :return: A 2-tuple of dictionaries with the cleaned-up training and validation datasets as numpy arrays.
-    '''
-    training_dataset = dataset_load(os.path.join(DATA_PATH, 'updated_training_datasets.h5'), feature_type=feature_type, normalize=normalize)
-    validation_dataset = dataset_load(os.path.join(DATA_PATH, 'updated_validation_datasets.h5'), feature_type=feature_type, normalize=normalize)
+    def __init__(self, path:str, feature_type:str=None, normalize:bool=True):
 
-    # Clean up both datasets.
-    validation_dataset = dataset_clean(validation_dataset, binary=binary, feature_type=feature_type)
-    training_dataset = dataset_clean(training_dataset, binary=binary, feature_type=feature_type)
+        self.feature_type = feature_type
+        self.features = pd.read_hdf(path, key=feature_type) # Read from the HDF file.
+        self.metadata = pd.read_hdf(path, key='metadata')
+        self.labeled = 'physiology' in self.metadata.columns
+        # TODO: Will want to add some checks to make sure the alignment works as expected. 
+        self.features, self.metadata = self.features.align(self.metadata, join='left', axis=0)
 
-    if to_numpy:
-        validation_dataset = dataset_to_numpy(validation_dataset)
-        training_dataset = dataset_to_numpy(training_dataset)
+        if feature_type != 'embedding_rna16s':
+            feature_order = load_feature_order(feature_type)
+            for f in feature_order: # If the data is missing a feature, fill it in with zeros.
+                if f not in self.features.columns:
+                    self.features[f] = np.zeros(len(self.features))  
+        # If the normalize option is specified, and the feature type is "normalizable," then normalize the rows.
+        if normalize and is_normalizable_feature_type(feature_type):
+            self.features = self.features.apply(lambda row : row / row.sum(), axis=1)
 
-    return training_dataset, validation_dataset
+    def taxonomy(self, level:str):
+        if level in self.metadata:
+            return self.metadata[level]
+
+    def loc(self, genome_ids:List[str]):
+        self.features = self.features.loc[genome_ids]
+        self.metadata = self.metadata.loc[genome_ids]
+        return self
+
+    def index(self):
+        return self.features.index
+
+    def __len__(self):
+        return len(self.features)
+
+    def labels(self, n_classes:int=3):
+        # Handle the case of the FeatureDataset being unlabeled.
+        if not self.labeled:
+            return None 
+
+        labels = self.metadata.physiology
+        if n_classes == 2:
+            labels = labels.replace({'Aerobe':'tolerant', 'Facultative':'tolerant', 'Anaerobe':'intolerant'})
+        elif n_classes == 3:
+            labels= labels.replace({'Aerobe':'aerobe', 'Facultative':'facultative', 'Anaerobe':'anaerobe'})
+        return labels.values
+  
+    def to_numpy(self, n_classes:int=3):
+        X = self.features.values.astype(np.float32)
+        y = self.labels(n_classes=n_classes)
+        return X, y 
+
+    def align(self, dataset):
+        # TODO: Check that this successfully modifies the other FeatureDataset inplace.
+        # TODO: Should I do a left join or inner join? Or something else?
+        self.features, dataset.features = self.features.align(dataset.features, join='outer', axis=0)
+        self.metadata, dataset.metadata = self.metadata.align(dataset.metadata, join='outer', axis=0)
+
+    def dims(self) -> int:
+        return len(self.features.columns)
+
+    def concat(self, dataset):
+        # TODO: Maybe add a check to make sure both datasets are normalized?
+        if dataset.feature_type != self.feature_type:
+            raise ValueError('FeatureDatasets must contain data of the same feature type to be concatenated.')
+        self.features = pd.concat(self.features, dataset.features, axis=0)
+        self.metadata = pd.concat(self.metadata, dataset.metadata, axis=0)
+        return self
 
 
-def dataset_clean_features(df:pd.DataFrame, feature_type:str='aa_3mer'):
-    '''Make sure the features in the input data match the features (including order) of the data on 
-    which the model was trained.
 
-    :param df: The data on which to run the model.
-    :param feature_type: The feature type of the data in the DataFrame.
-    '''
-    feature_order = dataset_load_feature_order(feature_type) # Load in the correct features.
-    
-    missing = 0
-    for f in feature_order:
-        # If the data is missing a feature, fill it in with zeros.
-        if f not in df.columns:
-            missing += 1
-            df[f] = np.zeros(len(df))
 
-    # if missing > 0:
-    #     print('dataset_clean_features:', missing, feature_type, 'features are missing from the input data. Filled missing data with 0.')
-    
-    df = df[feature_order] # Ensure the feature ordering is consistent. 
-    assert np.all(~df.isnull().values), 'dataset_clean_features: There should not be any null values in the DataFrame.'
-    return df

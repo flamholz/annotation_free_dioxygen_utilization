@@ -1,14 +1,18 @@
-'''Code for downloading genomes from the NCBI database. This is used primarily in the predict-contigs.py script.'''
 from Bio import Entrez, SeqIO
 import pandas as pd 
 import gzip
 import time 
-from aerobot.io import RESULTS_PATH, DATA_PATH
+from aerobot.utils import RESULTS_PATH, DATA_PATH
 import numpy as np 
 import os
 from tqdm import tqdm
 import argparse
 from typing import List 
+from bs4 import BeautifulSoup
+import zipfile 
+import subprocess
+import shutil
+
 
 # NOTE: Do you actually need an API key?
 # First, you need to create an NCBI account and generate an API key. 
@@ -21,100 +25,62 @@ GENOMES_PATH = os.path.join(DATA_PATH, 'contigs', 'genomes')
 Entrez.email = 'prichter@caltech.edu'
 Entrez.api_key = '2ff07cb20e93ddb8b358f92f91cae939e209'
 
-def ncbi_genome_id_to_refseq(genome_id:str) -> str:
-    '''Some of the genome IDs in the dataset are GenBank accessions, not RefSeq accesssions. Also, they are missing the .{int} 
-    extension, which specifies the version of the genome. This function changes a GenBank prefix to a RefSeq prefix 
-    (under the assumption that the numerical portion is the same), and adds a '.1' extension if not present.'''
-    original_genome_id = genome_id
-    genome_id = genome_id.replace('GCA', 'GCF') # Modify the prefix to align with RefSeq convention. 
-    if '.' not in genome_id:
-        genome_id = genome_id + '.1'
-    
-    if original_genome_id != genome_id:
-        print(f'ncbi_genome_id_to_refseq: Modified input genome ID to match RefSeq conventions, {original_genome_id} > {genome_id}.')
-    return genome_id 
 
-
-def ncbi_rna16s_get_seqs(rna16s_ids:List[str]) -> List[str]:
+def download_rna16s_seqs(ids:List[str]) -> List[str]:
     '''Function copied over from Josh's code for setting up the 16S classifier training and validation datasets. Downloads sequences
     using accessions which are contained in the Mark_Westoby_Organism_Metadata_Export_02152018.tsv file.
     '''
     records = []
-    for id_ in tqdm(rna16s_ids, desc='ncbi_rna16s_get_seqs'):
+    for id_ in tqdm(ids, desc='download_rna16s_seqs'):
         try:
             handle = Entrez.efetch(db='nucleotide', id=id_, rettype='gb', retmode='text')
             record = SeqIO.read(handle, 'genbank')
             handle.close()
             records.append(record)
-            # print(f'ncbi_rna16s_get_seqs: Successfully obtained sequence for ID {id_}.')
+            # print(f'rna16s_get_seqs: Successfully obtained sequence for ID {id_}.')
         except Exception as e:
-            print(f'ncbi_rna16s_get_seqs: Error fetching sequence for ID {id_}.')
+            print(f'download_rna16s_seqs: Error fetching sequence for ID {id_}.')
     return records
 
 
-def ncbi_get_nt_ids(genome_id:str) -> List[str]:
-    '''Get the search ID for the nucleotide database using a RefSeq genome ID.
-
-    :param genome_id: An RefSeq genome ID. If the genome ID does not conform to RefSeq convention, it is 
-        modified using the genome_id_to_refseq function.
-    :return: A list of integer identifiers for the nucleotide sequences attached to the genome ID in the NCBI
-        nucleotide database. 
-    '''
-    genome_id = ncbi_genome_id_to_refseq(genome_id)
-
-    handle = Entrez.esearch(db='nucleotide', term=genome_id)
-    results = Entrez.read(handle)
-    handle.close()
-
-    if len(results['IdList']) == 0:
-        return None
-
-    return results['IdList']
+def download_taxonomy(ids:List[str]):
+    levels = ['Domain', 'Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species']
+    rows = []
+    for id_ in tqdm(ids, desc='download_taxonomy'):
+        try:
+            handle = Entrez.efetch(db='taxonomy', id=id_, rettype='text')
+            soup = BeautifulSoup(handle.read(), features='xml')
+            lineage = soup.Lineage.text.split(';')[1:] # First entry in the taxonomy string is pointless. 
+            rows.append({level:taxonomy for level, taxonomy in zip(levels, lineage)})
+            # time.sleep(1)
+        except Exception as e:
+            print(f'download_rna16s_seqs: Error fetching taxonomy for ID {id_}.')
+            rows.append({level:'no rank' for level in levels})
+    df = pd.DataFrame(rows)
+    df.index = ids 
+    return df
 
 
-def ncbi_download_genomes(genome_ids:List[str]) -> List[str]:
-    '''Download the genomes with the specified IDs from the NCBI database.
+def download_genomes(genome_ids, path:str=os.path.join(DATA_PATH, 'contigs', 'genomes')):
 
-    :param genome_ids: A list of genome IDs to download.
-    :return: A list of the genome IDs which were successfully downloaded, or were already present in the GENOMES_PATH. 
-    ''' 
-    successfully_downloaded = []
+    archive_path = os.path.join(path, 'ncbi_dataset.zip')
 
-    for genome_id in genome_ids:
-        # Write the obtained sequences as records in a FASTA file. 
-        filename =  f'{genome_id}.fasta'
+    def extract_genome_from_archive(genome_id:str):
+        # https://stackoverflow.com/questions/4917284/extract-files-from-zip-without-keeping-the-structure-using-python-zipfile
+        archive = zipfile.ZipFile(archive_path)
+        for member in archive.namelist():
+            if member.startswith(f'ncbi_dataset/data/{genome_id}'):
+                source = archive.open(member)
+                # NOTE: Why does wb not result in another zipped file being created?
+                with open(os.path.join(path, f'{genome_id}.fna'), 'wb') as target:
+                    shutil.copyfileobj(source, target)
 
-        if filename in os.listdir(GENOMES_PATH):
-            # print(f'ncbi_download_genomes: Skipping {genome_id}, as it is already present in the output directory.')
-            successfully_downloaded.append(genome_id)
-            continue
+    for genome_id in tqdm(genome_ids, desc='download_genomes'):
+        if not os.path.exists(os.path.join(path, f'{genome_id}.fna')):
+            # Make sure to add a .1 back to the genome accession (removed while removing duplicates).
+            cmd = f'datasets download genome accession {genome_id}.1 --filename {archive_path} --include genome --no-progressbar'
+            subprocess.run(cmd, shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            extract_genome_from_archive(genome_id)
+    
+            os.remove(archive_path)
 
-        # Retrieve the nucleotide accession for the genomic sequence
-        nt_ids = ncbi_get_nt_ids(genome_id) # Can be multiple IDs if the genome is in the form of contigs.
-
-        if nt_ids is None:
-            print(f'ncbi_download_genomes: Skipping {genome_id}, as no search hits were found in the NCBI nucleotide database.')
-            continue
-        # This doesn't work, as there is also a case where the genome is complete, but spread across multiple chromosomes. 
-        # About 10 percent of bacterial species have more than one chromosome. These genomes are called multipartite genomes. 
-        # if (len(nt_ids)) > 1 and (complete_genomes_only): # If more than one nucleotide ID is found, then the genome is incomplete.
-        #     print(f'ncbi_download_genomes: Skipping {genome_id}, as genome is incomplete.')
-        #     continue
-
-        # Fetch the genomic sequence(s). 
-        records = []
-        for nt_id in nt_ids:
-            handle = Entrez.efetch(db='nucleotide', id=nt_id, rettype='fasta')
-            records.append(handle.read().strip()) # Remove trailing whitespace
-
-        # Write the sequence(s) to a FASTA file. 
-        with open(os.path.join(GENOMES_PATH, filename), 'w') as f:
-            f.write('\n'.join(records))
-        handle.close()
-
-        print(f'ncbi_download_genomes: Downloaded {genome_id} to {os.path.join(GENOMES_PATH, filename)}.')
-        successfully_downloaded.append(genome_id)
-        time.sleep(1)  # Respectful delay so as not to get blocked by NCBI. 
-
-    return successfully_downloaded # Return the list of completed downloads.
-        

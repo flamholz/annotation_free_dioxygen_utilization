@@ -1,1 +1,1 @@
-{"training_acc": 0.8559060743133118, "validation_acc": 0.8467647058823529, "classes": ["intolerant", "tolerant"], "confusion_matrix": [177, 48, 38, 370], "f1_score": 0.8634175487938843, "n_iter": 28, "converged": true, "C": 100, "penalty": "l2", "max_iter": 100000, "feature_type": "chemical", "model_class": "logistic", "binary": true}
+{"n_classes": 2, "train_acc": 0.788604628607313, "val_acc": 0.7924483569043006, "test_acc": 0.7946820388979772, "confusion_matrix": [134, 64, 34, 355], "val_accs": null, "train_accs": null, "val_losses": null, "train_losses": null}

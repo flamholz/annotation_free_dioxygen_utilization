@@ -1,1 +1,1 @@
-{"training_acc": 0.9995131450827653, "validation_acc": 0.8779780940198273, "classes": ["intolerant", "tolerant"], "confusion_matrix": [199, 37, 37, 387], "f1_score": 0.8878787878787879, "n_iter": 457, "converged": true, "C": 100, "penalty": "l2", "max_iter": 100000, "feature_type": "cds_5mer", "model_class": "logistic", "binary": true}
+{"n_classes": 2, "train_acc": 1.0, "val_acc": 0.899064033315466, "test_acc": 0.8867855937264677, "confusion_matrix": [172, 26, 37, 352], "val_accs": null, "train_accs": null, "val_losses": null, "train_losses": null}

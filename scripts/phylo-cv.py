@@ -1,10 +1,7 @@
-'''Code for phylogenetic cross-validation of classification models. This is to determine how robust the classifier
-is to phylogenetic differences. The resulting output can be used to generate plots of the form of Figure 2C in  
-https://www.biorxiv.org/content/10.1101/2024.03.22.586313v1.full.pdf'''
-from aerobot.dataset import dataset_to_numpy, dataset_load_training_validation, dataset_load
+from aerobot.dataset import FeatureDataset
 from sklearn.model_selection import GroupShuffleSplit
 from sklearn.preprocessing import OneHotEncoder
-from aerobot.io import FEATURE_TYPES, save_results_dict, read_params, RESULTS_PATH, DATA_PATH
+from aerobot.utils import FEATURE_TYPES, save_results_dict, RESULTS_PATH, DATA_PATH, load_datasets
 import argparse
 from aerobot.models import evaluate, Nonlinear, GeneralClassifier
 from sklearn.linear_model import LogisticRegression
@@ -17,40 +14,7 @@ import os
 LEVELS = ['Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species'] # Define the taxonomic levels. Kingdom is ommitted.
 
 
-class RandomRelative():
-    def __init__(self, level:str='Phylum', n_classes:int=3):
-        '''Initialize a RandomRelative classifier.
-        
-        :param tax_data: A DataFrame containing taxonomy information for each genome and their physiologies.
-        :param level: The taxonomic rank to use for mean-relative classification. 
-        '''
-        self.taxonomy = pd.read_hdf(os.path.join(DATA_PATH, 'updated_all_datasets.h5'), key='labels')[[level, 'physiology']]
-        self.encoder = OneHotEncoder(handle_unknown='error', sparse_output=False)
-        self.level = level
-        self.n_classes = n_classes # Store the number of classes.
-
-    def fit(self, X:np.ndarray, y:np.ndarray):
-        '''Fits the label encoder and puts the physiology labels in the correct format.'''
-        self.classes_ = np.unique(y).ravel() # Store the classes.
-        if self.n_classes == 2: # If the task is binary classification...
-            label_map = {"Aerobe": "tolerant", "Facultative": "tolerant", "Anaerobe": "intolerant"}
-        elif self.n_classes == 3: # If the task is ternary classification...
-            label_map = {"Aerobe": "aerobe", "Facultative": "facultative", "Anaerobe": "anaerobe"}
-        self.taxonomy.physiology = self.taxonomy.physiology.replace(label_map) # Format the labels.
-        self.encoder.fit(y.reshape(-1, 1)) # Fit the encoder.
-
-    def predict(self, X:np.ndarray):
-        # Get the taxonomy label at self.level for each genome ID in X.
-        X_taxonomy = self.taxonomy.loc[X.ravel(), self.level].values
-        y_pred = []
-        for t in X_taxonomy:
-            relatives = self.taxonomy[self.taxonomy[self.level] == t] # Get all relatives at the specified level.
-            y_pred.append(np.random.choice(relatives.physiology.values)) # Choose a random physiology label from among the relatives. 
-        y_pred = np.array(y_pred).ravel()
-        return y_pred
-
-
-def phylogenetic_cross_validation(dataset:Dict[str, pd.DataFrame], n_splits:int=25, level:str='Class', model_class:str='nonlinear', binary:bool=False) -> Dict:
+def phylogenetic_cross_validation(dataset:FeatureDataset, n_splits:int=25, level:str='Class', model_class:str='nonlinear', binary:bool=False) -> Dict:
     '''Perform cross-validation using holdout sets partitioned according to the specified taxonomic level. For example, if the 
     specified level is 'Class', then the closest relative to any member of the holdout set will be an organism in the same phylum. If 
     the level is 'Family', then the closest relative to any member of the holdout set will be an organism in the same order... etc.
@@ -60,7 +24,7 @@ def phylogenetic_cross_validation(dataset:Dict[str, pd.DataFrame], n_splits:int=
     :param n_splits: The number of folds for K-fold cross-validation. This must be no fewer than the number of groups.
     :param n_repeats: The number of times to repeat grouped K-fold cross validation. 
     '''
-    groups = dataset['labels'][level].values # Extract the taxonomy labels from the labels DataFrame.
+    groups = dataset.taxonomy(level).values # Extract the taxonomy labels from the labels DataFrame.
 
     if model_class in ['nonlinear', 'logistic']:
         dataset = dataset_to_numpy(dataset) # Convert the dataset to numpy arrays after extracting the taxonomy labels.
@@ -97,17 +61,16 @@ def phylogenetic_cross_validation(dataset:Dict[str, pd.DataFrame], n_splits:int=
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('model-class', choices=['nonlinear', 'logistic', 'randrel'], help='The type of model to train.')
+    parser.add_argument('feature-type', type=str, default=None, choices=FEATURE_TYPES, help='The feature type on which to train.')
     parser.add_argument('--n-splits', default=25, type=int, help='The number of folds for K-fold cross validation.')
-    parser.add_argument('--feature-type', '-f', type=str, default=FEATURE_TYPES, nargs='+', choices=FEATURE_TYPES + [None], help='The feature type on which to train.')
-    parser.add_argument('--binary', default=0, type=bool, help='Whether to train on the binary classification task. If False, then ternary classification is performed.')
+    parser.add_argument('--n-classes', default=3, type=int)
 
     args = parser.parse_args()
     model_class = getattr(args, 'model-class') # Get the model class to run.
-    feature_types = [None] if (model_class == 'randrel') else args.feature_type
+    feature_type = getattr(args, 'feature-type') # Get the model class to run.
 
-    for feature_type in feature_types: 
-        dataset, _ = dataset_load_training_validation(feature_type, binary=args.binary, to_numpy=False) # Load the training dataset without converting to numpy arrays (yet).
-
+    datasets = load_datasets(feature_type)
+    dataset = datasets['training'].concat(datasets['validation'])
         # Should probably report the standard deviation, mean, and standard error for each run.
         scores = dict()
         for level in LEVELS:

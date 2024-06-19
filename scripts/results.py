@@ -1,20 +1,21 @@
 import subprocess 
-from aerobot.io import SCRIPTS_PATH, FEATURE_TYPES, DATA_PATH, RESULTS_PATH
+from aerobot.utils import SCRIPTS_PATH, FEATURE_TYPES, DATA_PATH, RESULTS_PATH
 import os
 
 # Training the models --------------------------------------------------------------------------------------------------------------------------
-# script = os.path.join(SCRIPTS_PATH, 'train.py')
-# subprocess.run(f'python {script} logistic --binary 1', shell=True, check=True)
-# subprocess.run(f'python {script} logistic', shell=True, check=True)
-# subprocess.run(f'python {script} nonlinear', shell=True, check=True)
+script = os.path.join(SCRIPTS_PATH, 'train.py')
+for feature_type in [f for f in FEATURE_TYPES if f != 'embedding_rna16s']:
+    subprocess.run(f'python {script} logistic {feature_type} --n-classes 2', shell=True, check=True)
+    subprocess.run(f'python {script} logistic {feature_type}', shell=True, check=True)
+    subprocess.run(f'python {script} nonlinear {feature_type}', shell=True, check=True)
 
 # Running models on Earth Microbiome Project and Black Sea data --------------------------------------------------------------------------------
-script = os.path.join(SCRIPTS_PATH, 'predict.py')
-for source in ['earth_microbiome', 'black_sea']:
-    for model_class in ['nonlinear', 'logistic']:
-        input_path =  os.path.join(DATA_PATH, source, 'aa_3mer.csv')
-        output_path = os.path.join(RESULTS_PATH, f'{source}_{model_class}_aa_3mer_ternary.csv')
-        subprocess.run(f'python {script} -m {model_class}_aa_3mer_ternary.joblib -f aa_3mer -i {input_path} -o {output_path}', shell=True, check=True)
+# script = os.path.join(SCRIPTS_PATH, 'predict.py')
+# for source in ['earth_microbiome', 'black_sea']:
+#     for model_class in ['nonlinear', 'logistic']:
+#         input_path =  os.path.join(DATA_PATH, source, 'aa_3mer.csv')
+#         output_path = os.path.join(RESULTS_PATH, f'{source}_{model_class}_aa_3mer_ternary.csv')
+#         subprocess.run(f'python {script} -m {model_class}_aa_3mer_ternary.joblib -f aa_3mer -i {input_path} -o {output_path}', shell=True, check=True)
 
 # Predicting metabolism from contigs -----------------------------------------------------------------------------------------------------------
 # script = os.path.join(SCRIPTS_PATH, 'predict-contigs.py')
