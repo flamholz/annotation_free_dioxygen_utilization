@@ -32,14 +32,14 @@ def order_features(features:pd.DataFrame, feature_type:str) -> pd.DataFrame:
         return np.all([elem in ref] for elem in col)
     
     if is_kmer_feature_type(feature_type): 
-        order = [f for f in feature_order if is_valid_column(f)]
+        order = [f for f in order if is_valid_column(f)]
     
     # If the data is missing a feature, fill it in with zeros.
     missing_cols = [f for f in order if f not in features.columns]
     filler = pd.DataFrame(0, index=features.index, columns=missing_cols)
     features = pd.concat([features, filler], axis=1)
 
-    return features[feature_order]
+    return features[order]
 
 
 class FeatureDataset():

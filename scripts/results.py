@@ -9,13 +9,14 @@ PREDICT = os.path.join(SCRIPTS_PATH, 'predict.py')
 TRAIN = os.path.join(SCRIPTS_PATH, 'train.py')
 
 # Training the models --------------------------------------------------------------------------------------------------------------------------
-# for feature_type in FEATURE_TYPES + ['embedding_rna16s']:
-#     subprocess.run(f'python {script} logistic {feature_type} --n-classes 2', shell=True, check=True)
-#     subprocess.run(f'python {script} logistic {feature_type}', shell=True, check=True)
-#     subprocess.run(f'python {script} nonlinear {feature_type}', shell=True, check=True)
+print('\nTraining the models...\n')
+for feature_type in FEATURE_TYPES + ['embedding_rna16s']:
+    subprocess.run(f'python {script} logistic {feature_type} --n-classes 2', shell=True, check=True)
+    subprocess.run(f'python {script} logistic {feature_type}', shell=True, check=True)
+    subprocess.run(f'python {script} nonlinear {feature_type}', shell=True, check=True)
 
 # Running trained models on Earth Microbiome Project and Black Sea data -------------------------------------------------------------------------
-print('\nRunning trained models on Earth Microbiome Project and Black Sea data.\n')
+print('\nRunning trained models on Earth Microbiome Project and Black Sea data...\n')
 for source in ['earth_microbiome', 'black_sea']:
     print(f'Predicting oxygen utilization from {source} MAGs.')
     aa_3mers = order_features(pd.read_csv(os.path.join(DATA_PATH, source, 'aa_3mer.csv'), index_col=0), 'aa_3mer')

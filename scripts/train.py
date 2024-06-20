@@ -1,8 +1,8 @@
 from aerobot.models import LinearClassifier, NonlinearClassifier, LogisticClassifier
 import argparse
-from aerobot.utils import load_datasets, FEATURE_TYPES, DATA_PATH, RESULTS_PATH, MODELS_PATH, save_results_dict
+from aerobot.utils import FEATURE_TYPES, DATA_PATH, RESULTS_PATH, MODELS_PATH, save_results_dict
 import time
-from aerobot.dataset import FeatureDataset
+from aerobot.dataset import FeatureDataset, load_datasets
 import os
 import numpy as np
 import torch
