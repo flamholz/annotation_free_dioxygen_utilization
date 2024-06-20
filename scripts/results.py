@@ -11,9 +11,9 @@ TRAIN = os.path.join(SCRIPTS_PATH, 'train.py')
 # Training the models --------------------------------------------------------------------------------------------------------------------------
 print('\nTraining the models...\n')
 for feature_type in FEATURE_TYPES + ['embedding_rna16s']:
-    subprocess.run(f'python {script} logistic {feature_type} --n-classes 2', shell=True, check=True)
-    subprocess.run(f'python {script} logistic {feature_type}', shell=True, check=True)
-    subprocess.run(f'python {script} nonlinear {feature_type}', shell=True, check=True)
+    subprocess.run(f'python {TRAIN} logistic {feature_type} --n-classes 2', shell=True, check=True)
+    subprocess.run(f'python {TRAIN} logistic {feature_type}', shell=True, check=True)
+    subprocess.run(f'python {TRAIN} nonlinear {feature_type}', shell=True, check=True)
 
 # Running trained models on Earth Microbiome Project and Black Sea data -------------------------------------------------------------------------
 print('\nRunning trained models on Earth Microbiome Project and Black Sea data...\n')
