@@ -11,7 +11,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from aerobot.features import kmers
-from aerobot.dataset import FeatureDataset, load_feature_order
+from aerobot.dataset import FeatureDataset
 from aerobot.models import NonlinearClassifier
 from aerobot import ncbi
 import argparse

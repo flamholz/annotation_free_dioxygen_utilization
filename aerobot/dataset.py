@@ -9,7 +9,7 @@ import re
 import copy
 
 
-def is_normalizable_feature_type(feature_type:str):
+def is_kmer_feature_type(feature_type:str):
     if re.match(r'aa_(\d)mer', feature_type) is not None:
         return True
     # NOTE: nt_ is in "percent_oxygen_genes," so need to be careful here!
@@ -21,23 +21,25 @@ def is_normalizable_feature_type(feature_type:str):
         return False 
 
 
-def load_feature_order(feature_type:str) -> np.ndarray:
-    feature_order = pd.read_hdf(os.path.join(DATA_PATH, 'training_datasets.h5'), key=feature_type).columns # Load the training dataset. 
+def order_features(features:pd.DataFrame, feature_type:str) -> pd.DataFrame:
+    order = pd.read_hdf(os.path.join(DATA_PATH, 'training_datasets.h5'), key=feature_type).columns # Load the training dataset columns. 
+    
     # Remove ambiguous bases and amino acids. The removed symbols indicate that the base or amino acid is unknown, and 
     # do not occur very frequently. 
 
-    def is_valid_aa_feature(f):
-        return np.all([aa in AMINO_ACIDS] for aa in f)
+    def is_valid_column(col:str) -> bool:
+        ref = AMINO_ACIDS if re.match(r'aa_(\d)mer', feature_type) else NUCLEOTIDES
+        return np.all([elem in ref] for elem in col)
     
-    def is_valid_nt_feature(f):
-        return np.all([aa in NUCLEOTIDES] for aa in f)
+    if is_kmer_feature_type(feature_type): 
+        order = [f for f in feature_order if is_valid_column(f)]
+    
+    # If the data is missing a feature, fill it in with zeros.
+    missing_cols = [f for f in order if f not in features.columns]
+    filler = pd.DataFrame(0, index=features.index, columns=missing_cols)
+    features = pd.concat([features, filler], axis=1)
 
-    if ('aa_' in feature_type): 
-        feature_order = [f for f in feature_order if is_valid_aa_feature(f)]
-    if ('nt_' in feature_type) or ('cds_' in feature_type):
-        feature_order = [f for f in feature_order if is_valid_nt_feature(f)]
-
-    return feature_order
+    return features[feature_order]
 
 
 class FeatureDataset():
@@ -51,13 +53,12 @@ class FeatureDataset():
         # TODO: Will want to add some checks to make sure the alignment works as expected. 
         self.features, self.metadata = self.features.align(self.metadata, join='left', axis=0)
 
+        # Make sure the column ordering of the feature columns is consistent. 
         if feature_type != 'embedding_rna16s':
-            feature_order = load_feature_order(feature_type)
-            for f in feature_order: # If the data is missing a feature, fill it in with zeros.
-                if f not in self.features.columns:
-                    self.features[f] = np.zeros(len(self.features))  
+            self.features = order_features(self.features, feature_type)
+
         # If the normalize option is specified, and the feature type is "normalizable," then normalize the rows.
-        if normalize and is_normalizable_feature_type(feature_type):
+        if normalize and is_kmer_feature_type(feature_type):
             self.features = self.features.apply(lambda row : row / row.sum(), axis=1)
 
     def taxonomy(self, level:str):
@@ -122,7 +123,7 @@ def load_datasets(feature_type:str) -> Dict[str, FeatureDataset]:
     datasets = dict()
     for dataset_type in ['training', 'testing', 'validation']:
         if feature_type == 'embedding.rna16s':
-            datasets[dataset_type] = FeatureDataset(os.path.join(DATA_PATH, f'rna16s_{dataset_type}_dataset.h5'), feature_type=feature_type)
+            datasets[dataset_type] = FeatureDataset(os.path.join(DATA_PATH, 'rna16s', f'{dataset_type}_dataset.h5'), feature_type=feature_type)
         else:
             datasets[dataset_type] = FeatureDataset(os.path.join(DATA_PATH, f'{dataset_type}_datasets.h5'), feature_type=feature_type)
     return datasets
