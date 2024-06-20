@@ -107,6 +107,7 @@ def remove_duplicates(data:pd.DataFrame) -> pd.DataFrame:
     print(f'remove_duplicates: Removed {n - len(data)} duplicate entries.')
     return data
 
+
 def remove_suppressed(data:pd.DataFrame) -> pd.DataFrame:
     '''Removes genomes which have been suppressed by NCBI.'''
     n = len(data)
@@ -130,7 +131,6 @@ if __name__ == '__main__':
         # Load in the datasets.
         jablonska_data = load_data(feature_type, source='jablonska')
         madin_data = load_data(feature_type, source='madin')
-
 
         data = merge_data(jablonska_data, madin_data, fill_nans=feature_type!='metadata')
         data = remove_duplicates(data)

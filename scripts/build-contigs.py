@@ -63,7 +63,7 @@ def get_genome_metadata(genome_ids:List[str], feature_types:List[str]=['aa_1mer'
     genome_metadata.to_csv(os.path.join(CONTIGS_PATH, 'genome_metadata.csv'))
 
 
-def parse_prodigal_output(path:str, use_genomes:List[str]=None) -> List[SeqIO]:
+def parse_prodigal_output(path:str) -> List[SeqIO]:
 
     records, genome_ids, contig_sizes, ids = [], [], [], []
     # Modify the record IDs so that they are correctly grouped by the kmer.from_records function.
@@ -75,19 +75,18 @@ def parse_prodigal_output(path:str, use_genomes:List[str]=None) -> List[SeqIO]:
         genome_id_prefix, genome_id_num, contig_size, contig_num, _ = id_.split('_')
         genome_id = f'{genome_id_prefix}_{genome_id_num}'
 
-        if genome_id in use_genomes:
-            record.id = f'{genome_id}_{contig_size}_{contig_num}'
-            genome_ids.append(genome_id)
-            contig_sizes.append(int(contig_size))
-            ids.append(f'{genome_id}_{contig_size}_{contig_num}')
-            records.append(record)
+        record.id = f'{genome_id}_{contig_size}_{contig_num}'
+        genome_ids.append(genome_id)
+        contig_sizes.append(int(contig_size))
+        ids.append(f'{genome_id}_{contig_size}_{contig_num}')
+        records.append(record)
 
     metadata = pd.DataFrame()
-    metadata['id'] = ids 
+    metadata['id'] = ids # This will have duplicates in it, as one is added per record. 
     metadata['genome_id'] = genome_ids 
     metadata['contig_size'] = contig_sizes
 
-    return records, metadata
+    return records, metadata.drop_duplicates()
 
 
 def prodigal(nt_input_path:str, mode:str='meta') -> List[SeqRecord]:
@@ -129,12 +128,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # "You can also have a length floor of 2000, which is the minimum that metabat will consider for binning"
     parser.add_argument('--contig-sizes', nargs='+', default=[2000, 5000, 7000, 10000, 20000, 30000, 40000])
-    parser.add_argument('--max-n-contigs', type=int, default=50)
+    parser.add_argument('--max-n-contigs', type=int, default=100)
     # parser.add_argument('--n-genomes', type=int, default=75) 
     args = parser.parse_args()
 
     dataset = FeatureDataset(os.path.join(DATA_PATH, 'testing_datasets.h5'), feature_type='aa_1mer')
-    genome_ids = dataset.taxonomy('Class').drop_duplicates(keep='first').index
+    # genome_ids = dataset.taxonomy('Class').drop_duplicates(keep='first').index
+    genome_ids = []
+    for _, class_df in dataset.metadata.groupby('Class'):
+        genome_ids += list(np.random.choice(class_df.index.values, size=2, replace=True))
+    genome_ids = np.unique(genome_ids) # Remove any duplicates from sampling multiple times.
+
 
     get_genome_metadata(genome_ids)
     ncbi.download_genomes(genome_ids, path=GENOMES_PATH)
@@ -152,8 +156,7 @@ if __name__ == '__main__':
         prodigal(os.path.join(CONTIGS_PATH, 'metagenome.fna'))
 
     # use_genomes = random.sample(genome_ids, args.n_genomes)
-    use_genomes = genome_ids 
-    records, metadata = parse_prodigal_output(os.path.join(CONTIGS_PATH, 'metagenome.faa'), use_genomes=use_genomes)
+    records, metadata = parse_prodigal_output(os.path.join(CONTIGS_PATH, 'metagenome.faa'))
 
     # Create a metadata DataFrame for each contig by merging the metadata from the Prodigal output with the genome metadata.
     genome_metadata = pd.read_csv(os.path.join(CONTIGS_PATH, 'genome_metadata.csv'), index_col=0)
@@ -162,7 +165,7 @@ if __name__ == '__main__':
     metadata = metadata.set_index('id')
 
     # Having memory issues saving more than 50 genomes. Should either run it on the cluster, or just reduce the number of genomes. 
-    contig_datasets_path = os.path.join(CONTIGS_PATH, 'contigs_datasets.h5')
+    contig_datasets_path = os.path.join(CONTIGS_PATH, 'datasets.h5')
     for i, feature_type in enumerate(['aa_1mer', 'aa_2mer', 'aa_3mer']):
 
         print(f'Extracting {feature_type} features from the synthetic contigs.')

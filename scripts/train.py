@@ -12,7 +12,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('model-class', choices=['nonlinear', 'linear', 'logistic'], help='The type of model to train.')
-    parser.add_argument('feature-type', type=str, default=None, choices=FEATURE_TYPES, help='The feature type on which to train.')
+    parser.add_argument('feature-type', type=str, default=None, choices=FEATURE_TYPES + ['embedding_rna16s'], help='The feature type on which to train.')
     parser.add_argument('--n-classes', default=3, type=int, help='Number of classes.')
 
     t1 = time.perf_counter()
