@@ -121,7 +121,8 @@ if __name__ == '__main__':
 
     # Having memory issues saving more than 50 genomes. Should either run it on the cluster, or just reduce the number of genomes. 
     contig_datasets_path = os.path.join(CONTIGS_PATH, 'datasets.h5')
-    for i, feature_type in enumerate(CONTIGS_FEATURE_TYPES):
+    for i, feature_type in enumerate(['nt_5mer']):
+    # for i, feature_type in enumerate(CONTIGS_FEATURE_TYPES):
 
         print(f'Extracting {feature_type} features from the synthetic contigs.')
         k = int(re.search(r'(\d+)', feature_type).group(1))
@@ -130,7 +131,7 @@ if __name__ == '__main__':
         features = features.fillna(0).astype(int) # Trying to silence a performance warning. 
         save_hdf({feature_type:features}, contig_datasets_path) # , chunksize=1000)
 
-    save_hdf({'metadata':metadata}, contig_datasets_path)
+    # save_hdf({'metadata':metadata}, contig_datasets_path)
     print(f'Contig data saved to {contig_datasets_path}')
 
 

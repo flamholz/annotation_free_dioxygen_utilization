@@ -7,13 +7,14 @@ import pandas as pd
 
 PREDICT = os.path.join(SCRIPTS_PATH, 'predict.py')
 TRAIN = os.path.join(SCRIPTS_PATH, 'train.py')
+PHYLO_CV = os.path.join(SCRIPTS_PATH, 'phylo-cv.py')
 
 # Training the models --------------------------------------------------------------------------------------------------------------------------
 # print('\nTraining the models...\n')
-for feature_type in ['aa_1mer', 'aa_2mer', 'aa_3mer']:
-    subprocess.run(f'python {TRAIN} logistic {feature_type} --n-classes 2', shell=True, check=True)
-    subprocess.run(f'python {TRAIN} logistic {feature_type}', shell=True, check=True)
-    subprocess.run(f'python {TRAIN} nonlinear {feature_type}', shell=True, check=True)
+# for feature_type in ['aa_1mer', 'aa_2mer', 'aa_3mer']:
+#     subprocess.run(f'python {TRAIN} logistic {feature_type} --n-classes 2', shell=True, check=True)
+#     subprocess.run(f'python {TRAIN} logistic {feature_type}', shell=True, check=True)
+#     subprocess.run(f'python {TRAIN} nonlinear {feature_type}', shell=True, check=True)
 
 # Running trained models on Earth Microbiome Project and Black Sea data -------------------------------------------------------------------------
 # NOTE: This needs to be run on HPC, as the Earth Microbiome Project dataset is too large. 
@@ -30,7 +31,7 @@ for feature_type in ['aa_1mer', 'aa_2mer', 'aa_3mer']:
 #         prediction.to_csv(os.path.join(RESULTS_PATH, f'predict_{source}_{model_class}_aa_3mer_ternary.csv'))
 
 # Running trained models on synthetic contigs----------------------------------------------------------------------------------------------------
-print('\nRunning trained models on synthetic contigs...\n')
+# print('\nRunning trained models on synthetic contigs...\n')
 
 # for feature_type in ['nt_3mer', 'nt_4mer', 'nt_5mer']:
 #     model_path = os.path.join(MODELS_PATH, f'nonlinear_{feature_type}_ternary.joblib')
@@ -40,7 +41,7 @@ print('\nRunning trained models on synthetic contigs...\n')
 #     subprocess.run(f'python {PREDICT} --m {model_path} -f {feature_type} -i {input_path} -o {output_path}', shell=True, check=True)
 
 # Phylogenetic cross-validation ----------------------------------------------------------------------------------------------------------------
-# script = os.path.join(SCRIPTS_PATH, 'phylo-cv.py')
-# for feature_type in FEATURE_TYPES:
-#     cmd = f'python {script} nonlinear --feature-type {feature_type}'
-#     subprocess.run(f'sbatch -J {feature_type} --time 24:00:00 --output={feature_type}.out --mem 64GB --wrap "{cmd}"', shell=True, check=True)
+
+for feature_type in FEATURE_TYPES:
+    cmd = f'python {PHYLO_CV} nonlinear --feature-type {feature_type}'
+    subprocess.run(f'sbatch -J {feature_type} --time 24:00:00 --output={feature_type}.out --mem 64GB --wrap "{cmd}"', shell=True, check=True)
