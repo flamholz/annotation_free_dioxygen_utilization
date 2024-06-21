@@ -18,17 +18,18 @@ PHYLO_CV = os.path.join(SCRIPTS_PATH, 'phylo-cv.py')
 
 # Running trained models on Earth Microbiome Project and Black Sea data -------------------------------------------------------------------------
 # NOTE: This needs to be run on HPC, as the Earth Microbiome Project dataset is too large. 
-# print('\nRunning trained models on Earth Microbiome Project and Black Sea data...\n')
-# for source in ['earth_microbiome', 'black_sea']:
-#     print(f'Predicting oxygen utilization from {source} MAGs.')
-#     aa_3mers = order_features(pd.read_csv(os.path.join(DATA_PATH, source, 'aa_3mer.csv'), index_col=0), 'aa_3mer')
-#     print('Number of MAGs:', len(aa_3mers))
-#     for model_class in ['nonlinear', 'logistic']:
-#         model = NonlinearClassifier.load(os.path.join(MODELS_PATH, f'{model_class}_aa_3mer_ternary.joblib'))
+print('\nRunning trained models on Earth Microbiome Project and Black Sea data...\n')
 
-#         predictions = pd.DataFrame(index=aa_3mers.index)
-#         predictions['prediction'] = model.predict(aa_3mers.values)
-#         prediction.to_csv(os.path.join(RESULTS_PATH, f'predict_{source}_{model_class}_aa_3mer_ternary.csv'))
+for source in ['earth_microbiome', 'black_sea']:
+
+    print(f'Predicting oxygen utilization from {source} MAGs.')
+
+    model_path = os.path.join(MODELS_PATH, f'nonlinear_aa_3mer_ternary.joblib')
+    output_path = os.path.join(RESULTS_PATH, f'predict_{source}_nonlinear_aa_3mer_ternary.csv')
+    input_path = os.path.join(DATA_PATH, source, 'aa_3mer.csv')
+    
+    subprocess.run(f'python {PREDICT} -m {model_path} -f aa_3mer -i {input_path} -o {output_path} -t csv', shell=True, check=True) 
+
 
 # Running trained models on synthetic contigs----------------------------------------------------------------------------------------------------
 # print('\nRunning trained models on synthetic contigs...\n')
@@ -38,7 +39,7 @@ PHYLO_CV = os.path.join(SCRIPTS_PATH, 'phylo-cv.py')
 #     output_path = os.path.join(RESULTS_PATH, f'predict_contigs_nonlinear_{feature_type}_ternary.csv')
 #     input_path = os.path.join(CONTIGS_PATH, 'datasets.h5')
     
-#     subprocess.run(f'python {PREDICT} --m {model_path} -f {feature_type} -i {input_path} -o {output_path}', shell=True, check=True)
+#     subprocess.run(f'python {PREDICT} -m {model_path} -f {feature_type} -i {input_path} -o {output_path}', shell=True, check=True)
 
 # Phylogenetic cross-validation ----------------------------------------------------------------------------------------------------------------
 
