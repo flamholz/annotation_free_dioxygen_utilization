@@ -10,7 +10,6 @@ from typing import Dict, NoReturn
 import time
 import pickle
 from warnings import simplefilter
-import is_kmer_feature_type
 
 simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 
