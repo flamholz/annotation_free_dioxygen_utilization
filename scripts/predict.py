@@ -30,6 +30,7 @@ if __name__ == '__main__':
         dataset = FeatureDataset(args.input_path, feature_type=args.feature_type) # Make sure the feature ordering is correct. 
         ids = dataset.index()
         X, y = dataset.to_numpy() # Extract the raw data from the input DataFrame.
+        print(y)
     elif args.input_type == 'csv':
         data = order_features(pd.read_csv(args.input_path, index_col=0), args.feature_type)
         # Make sure to normalize the k-mer feature types! This is usually handled by the FeatureDataset intializer, 
