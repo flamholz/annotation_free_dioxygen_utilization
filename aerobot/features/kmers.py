@@ -17,9 +17,10 @@ def from_sequence(seq:str, kmers:Dict[str, int], k:int=3, allowed_kmers:List[str
     # Iterate through the sequence to generate kmers.
     for i in range(len(seq) - k + 1):
         kmer = seq[i: i + k] # Extract the k-mer from the sequence. 
-        if (kmer not in kmers) and ((allowed_kmers is None) or (kmer in allowed_kmers)):
-            kmers[kmer] = 0 # Add to the dictionary if it's not there already. 
-        kmers[kmer] += 1 # Increment the k-mer's count.
+        if kmer in allowed_kmers:
+            if kmer not in kmers:
+                kmers[kmer] = 0 # Add to the dictionary if it's not there already. 
+            kmers[kmer] += 1 # Increment the k-mer's count.
     return kmers
 
 
