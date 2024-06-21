@@ -88,8 +88,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     # "You can also have a length floor of 2000, which is the minimum that metabat will consider for binning"
-    parser.add_argument('--contig-sizes', nargs='+', default=[2000, 4000, 6000, 10000, 20000, 40000, 60000, 80000])
-    parser.add_argument('--max-n-contigs', type=int, default=100) 
+    parser.add_argument('--contig-sizes', nargs='+', default=[2000, 5000, 10000, 50000])
+    parser.add_argument('--max-n-contigs', type=int, default=None) 
     args = parser.parse_args()
 
     dataset = FeatureDataset(os.path.join(DATA_PATH, 'testing_datasets.h5'), feature_type='nt_2mer')
