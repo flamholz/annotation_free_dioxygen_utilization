@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from aerobot.utils import MODELS_PATH, RESULTS_PATH, FEATURE_TYPES
-from aerobot.dataset import FeatureDataset, is_kmer_feature_type
+from aerobot.dataset import FeatureDataset, is_kmer_feature_type, order_features
 from aerobot.models import BaseClassifier
 from sklearn.linear_model import LogisticRegression
 import os
