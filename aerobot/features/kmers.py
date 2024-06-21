@@ -72,7 +72,6 @@ def from_records(records:List[SeqRecord], k:int=3):
         for seq in seqs:
             id_kmers = from_sequence(seq, id_kmers, k=k)
         kmers.append(id_kmers)
-        
     return pd.DataFrame(kmers).set_index('id')
 
 

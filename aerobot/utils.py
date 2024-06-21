@@ -29,7 +29,7 @@ FEATURE_TYPES = ['ko', 'ko_terminal_oxidase_genes']
 FEATURE_TYPES += ['chemical']
 FEATURE_TYPES += ['embedding_genome', 'embedding_oxygen_genes'] #, 'embedding_rna16s'] 
 FEATURE_TYPES += ['number_of_genes', 'number_of_oxygen_genes', 'percent_oxygen_genes']
-FEATURE_TYPES += [f'nt_{i}mer' for i in range(1, 5)]
+FEATURE_TYPES += [f'nt_{i}mer' for i in range(1, 6)]
 FEATURE_TYPES += [f'cds_{i}mer' for i in range(1, 6)]
 FEATURE_TYPES += [f'aa_{i}mer' for i in range(1, 4)]
 

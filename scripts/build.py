@@ -124,8 +124,7 @@ if __name__ == '__main__':
     # download_data() # Download training data from Google Cloud if it has not been already.
     datasets = dict()
 
-    # for feature_type in ['metadata'] + FEATURE_TYPES:
-    for feature_type in FEATURE_TYPES:
+    for feature_type in ['metadata'] + FEATURE_TYPES:
         print(f'\nBuilding {feature_type} data...')
 
         # Load in the datasets.

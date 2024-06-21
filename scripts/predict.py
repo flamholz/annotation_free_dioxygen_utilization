@@ -19,14 +19,22 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model-path', '-m', type=str, help='Name of the pre-trained model to use. Expected to be stored in the models directory.')
     parser.add_argument('--input-path', '-i', type=str, help='Path to the dataset. This should be stored in an H5 file.')
-    parser.add_argument('--feature-type', '-f', type=str, default='aa_3mer', choices=FEATURE_TYPES, help='The feature type of the data.')
+    parser.add_argument('--input-type', '-t', type=str, choices=['csv', 'hdf'], default='hdf', help='Path to the dataset. This should be stored in an H5 file.')
+    parser.add_argument('--feature-type', '-f', type=str, default='aa_3mer', choices=FEATURE_TYPES + ['embedding_rna16s'], help='The feature type of the data.')
     parser.add_argument('--output-path', '-o', type=str, default=None, help='The location to which the predictions will be written.')
 
     args = parser.parse_args()
     t1 = time.perf_counter()
 
-    dataset = FeatureDataset(args.input_path, feature_type=args.feature_type) # Make sure the feature ordering is correct. 
-    X, y = dataset.to_numpy() # Extract the raw data from the input DataFrame.
+    if args.input_type == 'hdf':
+        dataset = FeatureDataset(args.input_path, feature_type=args.feature_type) # Make sure the feature ordering is correct. 
+        ids = dataset.index()
+        X, _ = dataset.to_numpy() # Extract the raw data from the input DataFrame.
+    elif args.input_type == 'csv':
+        data = order_features(pd.read_csv(args.input_path, index_col=0), args.feature_type)
+        ids = data.index 
+        X = data.values
+
     model = BaseClassifier.load(args.model_path)
     y_pred = model.predict(X)
 
@@ -38,4 +46,6 @@ if __name__ == '__main__':
     
     t2 = time.perf_counter()
     print(f'\nModel run complete in {np.round(t2 - t1, 2)} seconds.')
+
+
 

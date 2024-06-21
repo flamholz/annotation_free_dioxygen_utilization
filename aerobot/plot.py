@@ -215,12 +215,10 @@ def plot_model_accuracy_barplot(results:Dict[str, Dict], ax:plt.Axes=None, featu
 def plot_confusion_matrix(results:Dict[str, Dict], ax:plt.Axes=None) -> NoReturn:
     '''Plots a confusion matrix for a particular model evaluated on data of a particular feature type.'''
 
-    binary = results['binary'] # Assume all have the same value, but might want to add a check.
-    classes = results['classes'] # This should also be the same for each feature type. 
+    classes = ['aerobt', 'anaerobe', 'facultative'] if (results['n_classes'] == 3) else ['tolerant', 'intolerant']
 
     # Extract the confusion matrix, which is a flattened list, and need to be reshaped. 
-    dim = 2 if binary else 3 # Dimension of the confusion matrix.
-    confusion_matrix = np.array(results['confusion_matrix']).reshape(dim, dim)
+    confusion_matrix = np.array(results['confusion_matrix']).reshape(results['n_classes'], results['n_classes'])
     
     confusion_matrix = pd.DataFrame(confusion_matrix, columns=classes, index=classes)
     confusion_matrix = confusion_matrix.apply(lambda x: x/x.sum(), axis=1) # Normalize the matrix.

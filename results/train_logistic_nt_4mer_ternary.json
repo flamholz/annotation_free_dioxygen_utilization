@@ -1,1 +1,1 @@
-{"n_classes": 3, "train_acc": 0.8639535894153386, "val_acc": 0.6510186058527032, "test_acc": 0.6516279605652399, "confusion_matrix": [249, 40, 24, 31, 154, 13, 32, 15, 29], "val_accs": null, "train_accs": null, "val_losses": null, "train_losses": null}
+{"n_classes": 3, "train_acc": 0.8623944515692809, "val_acc": 0.6514928805395184, "test_acc": 0.6472419956529591, "confusion_matrix": [249, 39, 25, 31, 154, 13, 32, 16, 28], "val_accs": null, "train_accs": null, "val_losses": null, "train_losses": null}

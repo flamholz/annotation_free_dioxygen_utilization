@@ -55,13 +55,15 @@ def phylogenetic_cross_validation(dataset:FeatureDataset, n_splits:int=25, level
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('model-class', choices=['nonlinear', 'logistic', 'randrel'], help='The type of model to train.')
-    parser.add_argument('feature-type', type=str, default=None, choices=FEATURE_TYPES, help='The feature type on which to train.')
+    parser.add_argument('feature-type', type=str, choices=FEATURE_TYPES + ['none'], help='The feature type on which to train.')
     parser.add_argument('--n-splits', default=5, type=int, help='The number of folds for K-fold cross validation.')
     parser.add_argument('--n-classes', default=3, type=int)
 
     args = parser.parse_args()
     model_class = getattr(args, 'model-class') # Get the model class to run.
     feature_type = getattr(args, 'feature-type') # Get the model class to run.
+    if feature_type == 'none': # This is for the RandomRelative classifier, but need to use an arbitrary feature type to correctly load the datasets.
+        feature_type = 'aa_1mer'
 
     datasets = load_datasets(feature_type)
     dataset = datasets['training'].concat(datasets['validation'])
