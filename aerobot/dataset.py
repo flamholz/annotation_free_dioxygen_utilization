@@ -10,6 +10,8 @@ import copy
 
 
 def is_kmer_feature_type(feature_type:str):
+    if feature_type is None:
+        return False
     if re.match(r'aa_(\d)mer', feature_type) is not None:
         return True
     # NOTE: nt_ is in "percent_oxygen_genes," so need to be careful here!
@@ -44,17 +46,22 @@ def order_features(features:pd.DataFrame, feature_type:str) -> pd.DataFrame:
 
 class FeatureDataset():
 
-    def __init__(self, path:str, feature_type:str=None, normalize:bool=True):
+    def __init__(self, path:str, feature_type:str=None, normalize:bool=True, n_rows:int=None):
 
         self.feature_type = feature_type
-        self.features = pd.read_hdf(path, key=feature_type) # Read from the HDF file.
-        self.metadata = pd.read_hdf(path, key='metadata')
+
+        self.metadata = pd.read_hdf(path, key='metadata', stop=n_rows)
+        if feature_type is not None:
+            self.features = pd.read_hdf(path, key=feature_type, stop=n_rows) # Read from the HDF file.
+        else:
+            self.features = pd.DataFrame(index=self.metadata.index)
+
         self.labeled = 'physiology' in self.metadata.columns
         # TODO: Will want to add some checks to make sure the alignment works as expected. 
         self.features, self.metadata = self.features.align(self.metadata, join='left', axis=0)
 
         # Make sure the column ordering of the feature columns is consistent. 
-        if feature_type != 'embedding_rna16s':
+        if (feature_type != 'embedding_rna16s') and (feature_type is not None):
             self.features = order_features(self.features, feature_type)
 
         # If the normalize option is specified, and the feature type is "normalizable," then normalize the rows.

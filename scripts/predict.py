@@ -10,6 +10,7 @@ from typing import Dict, NoReturn
 import time
 import pickle
 from warnings import simplefilter
+import is_kmer_feature_type
 
 simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 
@@ -32,6 +33,10 @@ if __name__ == '__main__':
         X, _ = dataset.to_numpy() # Extract the raw data from the input DataFrame.
     elif args.input_type == 'csv':
         data = order_features(pd.read_csv(args.input_path, index_col=0), args.feature_type)
+        # Make sure to normalize the k-mer feature types! This is usually handled by the FeatureDataset intializer, 
+        # but needs to be done manually when loading a CSV.
+        if is_kmer_feature_type(args.feature_type):
+            data = data.apply(lambda row : row / row.sum(), axis=1)
         ids = data.index 
         X = data.values
 
