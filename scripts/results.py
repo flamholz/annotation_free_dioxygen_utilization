@@ -43,6 +43,6 @@ for source in ['earth_microbiome', 'black_sea']:
 
 # Phylogenetic cross-validation ----------------------------------------------------------------------------------------------------------------
 
-for feature_type in FEATURE_TYPES:
-    cmd = f'python {PHYLO_CV} nonlinear {feature_type}'
-    subprocess.run(f'sbatch -J {feature_type} --time 24:00:00 --output={feature_type}.out --mem 64GB --wrap "{cmd}"', shell=True, check=True)
+# for feature_type in FEATURE_TYPES:
+#     cmd = f'python {PHYLO_CV} nonlinear {feature_type}'
+#     subprocess.run(f'sbatch -J {feature_type} --time 24:00:00 --output={feature_type}.out --mem 64GB --wrap "{cmd}"', shell=True, check=True)
