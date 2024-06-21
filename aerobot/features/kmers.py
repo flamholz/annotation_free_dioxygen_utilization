@@ -6,7 +6,7 @@ import gzip
 from typing import Dict, List
 from tqdm import tqdm
 
-def from_sequence(seq:str, kmers:Dict[str, int], k:int=3) -> Dict[str, int]:
+def from_sequence(seq:str, kmers:Dict[str, int], k:int=3, allowed_kmers:List[str]=None) -> Dict[str, int]:
     '''Count all k-mers in the input sequence, updating the dictionary with counts.
     
     :param seq: A sequence of nucleotides or amino acids for which to compute k-mer counts.
@@ -17,7 +17,7 @@ def from_sequence(seq:str, kmers:Dict[str, int], k:int=3) -> Dict[str, int]:
     # Iterate through the sequence to generate kmers.
     for i in range(len(seq) - k + 1):
         kmer = seq[i: i + k] # Extract the k-mer from the sequence. 
-        if kmer not in kmers:
+        if (kmer not in kmers) and ((allowed_kmers is None) or (kmer in allowed_kmers)):
             kmers[kmer] = 0 # Add to the dictionary if it's not there already. 
         kmers[kmer] += 1 # Increment the k-mer's count.
     return kmers
@@ -54,7 +54,7 @@ def from_dataframe(df:pd.DataFrame, k:int=3) -> Dict[str, int]:
 
 
 
-def from_records(records:List[SeqRecord], k:int=3):
+def from_records(records:List[SeqRecord], k:int=3, allowed_kmers:List[str]=None):
     '''Takes a list of SeqRecords as input, which have been read in form a FASTA file. 
     This function does not assume that all sequences contained in the records belong to the same
     sequence object (i.e. genome, contig), so first groups the sequences by ID.'''
@@ -66,12 +66,13 @@ def from_records(records:List[SeqRecord], k:int=3):
             seqs_by_id[record.id] = []
         seqs_by_id[record.id].append(str(record.seq))
 
-    kmers = []
+    kmers, ids = [], []
     for id_, seqs in tqdm(seqs_by_id.items(), desc='kmers.from_records'):
-        id_kmers = {'id':id_}
+        id_kmers = dict()
         for seq in seqs:
-            id_kmers = from_sequence(seq, id_kmers, k=k)
+            id_kmers = from_sequence(seq, id_kmers, k=k, allowed_kmers=allowed_kmers)
+        ids.append(id)
         kmers.append(id_kmers)
-    return pd.DataFrame(kmers).set_index('id')
+    return pd.DataFrame(kmers, index=ids)
 
 

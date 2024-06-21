@@ -29,7 +29,7 @@ if __name__ == '__main__':
     if args.input_type == 'hdf':
         dataset = FeatureDataset(args.input_path, feature_type=args.feature_type) # Make sure the feature ordering is correct. 
         ids = dataset.index()
-        X, _ = dataset.to_numpy() # Extract the raw data from the input DataFrame.
+        X, y = dataset.to_numpy() # Extract the raw data from the input DataFrame.
     elif args.input_type == 'csv':
         data = order_features(pd.read_csv(args.input_path, index_col=0), args.feature_type)
         # Make sure to normalize the k-mer feature types! This is usually handled by the FeatureDataset intializer, 
@@ -37,13 +37,16 @@ if __name__ == '__main__':
         if is_kmer_feature_type(args.feature_type):
             data = data.apply(lambda row : row / row.sum(), axis=1)
         ids = data.index 
-        X = data.values
+        X, y = data.values, None
 
     model = BaseClassifier.load(args.model_path)
     y_pred = model.predict(X)
 
-    results = pd.DataFrame(index=dataset.index()) # Make sure to add the index back in!
+    results = pd.DataFrame(index=ids) # Make sure to add the index back in!
     results['prediction'] = y_pred.ravel() # Ravel because Nonlinear output is a column vector. 
+
+    if y is not None:
+        print('Balanced accuracy:', model.balanced_accuracy(X, y))
 
     print(f'\nWriting results to {args.output_path}.')
     results.to_csv(args.output_path)

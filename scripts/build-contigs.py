@@ -12,7 +12,7 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from aerobot.features import kmers
-from aerobot.dataset import FeatureDataset
+from aerobot.dataset import FeatureDataset, get_feature_order
 from aerobot.models import NonlinearClassifier
 from aerobot import ncbi
 import argparse
@@ -125,7 +125,7 @@ if __name__ == '__main__':
         print(f'Extracting {feature_type} features from the synthetic contigs.')
         k = int(re.search(r'(\d+)', feature_type).group(1))
 
-        features = kmers.from_records(records, k=k)
+        features = kmers.from_records(records, k=k, allowed_kmers=get_feature_order(feature_type))
         save_hdf({feature_type:features}, contig_datasets_path) # , chunksize=1000)
 
     save_hdf({'metadata':metadata}, contig_datasets_path)

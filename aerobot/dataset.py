@@ -23,21 +23,31 @@ def is_kmer_feature_type(feature_type:str):
         return False 
 
 
-def order_features(features:pd.DataFrame, feature_type:str) -> pd.DataFrame:
-    order = pd.read_hdf(os.path.join(DATA_PATH, 'training_datasets.h5'), key=feature_type).columns # Load the training dataset columns. 
+def get_feature_order(feature_type:str) -> List[str]:
+    # Load the training dataset columns, which are used as the reference columns.
+    order = pd.read_hdf(os.path.join(DATA_PATH, 'training_datasets.h5'), key=feature_type, stop=1).columns 
     
     # Remove ambiguous bases and amino acids. The removed symbols indicate that the base or amino acid is unknown, and 
     # do not occur very frequently. 
-
     def is_valid_column(col:str) -> bool:
         ref = AMINO_ACIDS if re.match(r'aa_(\d)mer', feature_type) else NUCLEOTIDES
-        return np.all([elem in ref] for elem in col)
+        return np.all([elem in ref for elem in col])
     
     if is_kmer_feature_type(feature_type): 
         order = [f for f in order if is_valid_column(f)]
+    return order
+
     
+def order_features(features:pd.DataFrame, feature_type:str, verbose:bool=False) -> pd.DataFrame:
+
+    order = get_feature_order(feature_type)
     # If the data is missing a feature, fill it in with zeros.
-    missing_cols = [f for f in order if f not in features.columns]
+    missing_cols = [c for c in order if c not in features.columns]
+    
+    if verbose: # Printing some stuff for debugging purposes. 
+        print('order_features:', len(missing_cols), 'columns missing from the', feature_type, 'data.')
+        print('order_features:', len([c for c in features.columns if c not in order]), 'extraneous columns in the', feature_type, 'data.')
+
     filler = pd.DataFrame(0, index=features.index, columns=missing_cols)
     features = pd.concat([features, filler], axis=1)
 
@@ -52,6 +62,8 @@ class FeatureDataset():
 
         self.metadata = pd.read_hdf(path, key='metadata', stop=n_rows)
         if feature_type is not None:
+            # For the sake of reducing memory, only load in the relevant columns. 
+            # cols, order = pd.read_hdf(path, key=feature_type, stop=1).columns, get_feature_order(feature_type)
             self.features = pd.read_hdf(path, key=feature_type, stop=n_rows) # Read from the HDF file.
         else:
             self.features = pd.DataFrame(index=self.metadata.index)
@@ -60,11 +72,14 @@ class FeatureDataset():
         # TODO: Will want to add some checks to make sure the alignment works as expected. 
         self.features, self.metadata = self.features.align(self.metadata, join='left', axis=0)
 
+        # Get rid of any NaNs in the data.
+        self.features = self.features.fillna(0)
         # Make sure the column ordering of the feature columns is consistent. 
         if (feature_type != 'embedding_rna16s') and (feature_type is not None):
             self.features = order_features(self.features, feature_type)
 
         # If the normalize option is specified, and the feature type is "normalizable," then normalize the rows.
+        # Make sure to normalize after filtering the columns!
         if normalize and is_kmer_feature_type(feature_type):
             self.features = self.features.apply(lambda row : row / row.sum(), axis=1)
 
