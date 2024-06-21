@@ -43,5 +43,5 @@ PHYLO_CV = os.path.join(SCRIPTS_PATH, 'phylo-cv.py')
 # Phylogenetic cross-validation ----------------------------------------------------------------------------------------------------------------
 
 for feature_type in FEATURE_TYPES:
-    cmd = f'python {PHYLO_CV} nonlinear --feature-type {feature_type}'
+    cmd = f'python {PHYLO_CV} nonlinear {feature_type}'
     subprocess.run(f'sbatch -J {feature_type} --time 24:00:00 --output={feature_type}.out --mem 64GB --wrap "{cmd}"', shell=True, check=True)
