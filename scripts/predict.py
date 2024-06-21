@@ -25,12 +25,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     t1 = time.perf_counter()
+    
+    model = BaseClassifier.load(args.model_path)
 
     if args.input_type == 'hdf':
         dataset = FeatureDataset(args.input_path, feature_type=args.feature_type) # Make sure the feature ordering is correct. 
         ids = dataset.index()
-        X, y = dataset.to_numpy() # Extract the raw data from the input DataFrame.
-        print(y)
+        X, y = dataset.to_numpy(n_classes=model.n_classes) # Extract the raw data from the input DataFrame.
     elif args.input_type == 'csv':
         data = order_features(pd.read_csv(args.input_path, index_col=0), args.feature_type)
         # Make sure to normalize the k-mer feature types! This is usually handled by the FeatureDataset intializer, 
@@ -40,7 +41,6 @@ if __name__ == '__main__':
         ids = data.index 
         X, y = data.values, None
 
-    model = BaseClassifier.load(args.model_path)
     y_pred = model.predict(X)
 
     results = pd.DataFrame(index=ids) # Make sure to add the index back in!

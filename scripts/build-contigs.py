@@ -2,10 +2,9 @@ from typing import List
 import pandas as pd 
 import numpy as np
 import argparse
-# from aerobot.contigs import * 
 import os
 from aerobot.utils import MODELS_PATH, DATA_PATH, save_hdf
-# import warnings
+import warnings
 import subprocess
 from typing import Dict
 from Bio import SeqIO
@@ -22,7 +21,8 @@ import random
 import re
 # import dask.dataframe as ddf
 
-# warnings.simplefilter('ignore')
+# Ignore some annoying warnings triggered when saving HDF files.
+warnings.filterwarnings('ignore', category=pd.io.pytables.PerformanceWarning)
 
 CONTIGS_PATH = os.path.join(DATA_PATH, 'contigs')
 GENOMES_PATH = os.path.join(CONTIGS_PATH, 'genomes')
@@ -90,11 +90,12 @@ if __name__ == '__main__':
     # "You can also have a length floor of 2000, which is the minimum that metabat will consider for binning"
     parser.add_argument('--contig-sizes', nargs='+', default=[2000, 5000, 10000, 20000, 50000])
     parser.add_argument('--max-n-contigs', type=int, default=1000) 
+    parser.add_argument('--n-genomes', type=int, default=50) 
     args = parser.parse_args()
 
     dataset = FeatureDataset(os.path.join(DATA_PATH, 'testing_datasets.h5'), feature_type='nt_2mer')
-    # genome_ids = np.random.choice(dataset.metadata.index.values, size=args.n_genomes, replace=False)
-    genome_ids = dataset.metadata.index.values
+    genome_ids = np.random.choice(dataset.metadata.index.values, size=args.n_genomes, replace=False)
+    # genome_ids = dataset.metadata.index.values
     
     get_genome_metadata(genome_ids)
     ncbi.download_genomes(genome_ids, path=GENOMES_PATH)
@@ -110,11 +111,11 @@ if __name__ == '__main__':
     else:
         records = list(SeqIO.parse(os.path.join(CONTIGS_PATH, 'metagenome.fna'), 'fasta'))
 
-    # Extract metadata from the contig IDs. 
-    metadata = pd.DataFrame([parse_contig_id(record.id) for record in records])
     # Create a metadata DataFrame for each contig by merging the metadata from the Prodigal output with the genome metadata.
     genome_metadata = pd.read_csv(os.path.join(CONTIGS_PATH, 'genome_metadata.csv'), index_col=0)
     genome_metadata['genome_id'] = genome_metadata.index 
+    # Extract metadata from the contig IDs. 
+    metadata = pd.DataFrame([parse_contig_id(record.id) for record in records])
     metadata = metadata.merge(genome_metadata, on=['genome_id'], how='left')
     metadata = metadata.set_index('id')
 
@@ -126,6 +127,7 @@ if __name__ == '__main__':
         k = int(re.search(r'(\d+)', feature_type).group(1))
 
         features = kmers.from_records(records, k=k, allowed_kmers=get_feature_order(feature_type))
+        features = features.fillna(0).astype(int) # Trying to silence a performance warning. 
         save_hdf({feature_type:features}, contig_datasets_path) # , chunksize=1000)
 
     save_hdf({'metadata':metadata}, contig_datasets_path)

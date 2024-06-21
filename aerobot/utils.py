@@ -10,6 +10,10 @@ from Bio.Seq import Seq
 from tqdm import tqdm
 from Bio.SeqRecord import SeqRecord
 import pickle
+import warnings 
+
+# Ignore some annoying warnings triggered when saving HDF files.
+warnings.filterwarnings('ignore', category=pd.io.pytables.PerformanceWarning)
 
 ROOT_PATH, _ = os.path.split(os.path.abspath(__file__))
 

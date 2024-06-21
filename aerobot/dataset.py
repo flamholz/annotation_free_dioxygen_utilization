@@ -111,10 +111,11 @@ class FeatureDataset():
             return None 
 
         labels = self.metadata.physiology
+        labels = labels.str.lower()
         if n_classes == 2:
-            labels = labels.replace({'Aerobe':'tolerant', 'Facultative':'tolerant', 'Anaerobe':'intolerant'})
-        elif n_classes == 3:
-            labels= labels.replace({'Aerobe':'aerobe', 'Facultative':'facultative', 'Anaerobe':'anaerobe'})
+            labels = labels.replace({'aerobe':'tolerant', 'facultative':'tolerant', 'anaerobe':'intolerant'})
+        # elif n_classes == 3:
+        #     labels = labels.replace({'Aerobe':'aerobe', 'Facultative':'facultative', 'Anaerobe':'anaerobe'})
         return labels.values
   
     def to_numpy(self, n_classes:int=3):

@@ -72,7 +72,7 @@ def from_records(records:List[SeqRecord], k:int=3, allowed_kmers:List[str]=None)
         id_kmers = dict()
         for seq in seqs:
             id_kmers = from_sequence(seq, id_kmers, k=k, allowed_kmers=allowed_kmers)
-        ids.append(id)
+        ids.append(id_)
         kmers.append(id_kmers)
     return pd.DataFrame(kmers, index=ids)
 
