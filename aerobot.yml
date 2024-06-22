@@ -1,0 +1,10 @@
+name: aerobot
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - biopython
+  - dask
+  - ncbi-datasets-cli
+prefix: /home/prichter/miniconda3/envs/aerobot
