@@ -11,10 +11,10 @@ PHYLO_CV = os.path.join(SCRIPTS_PATH, 'phylo-cv.py')
 
 # Training the models --------------------------------------------------------------------------------------------------------------------------
 # print('\nTraining the models...\n')
-# for feature_type in ['aa_1mer', 'aa_2mer', 'aa_3mer']:
-#     subprocess.run(f'python {TRAIN} logistic {feature_type} --n-classes 2', shell=True, check=True)
-#     subprocess.run(f'python {TRAIN} logistic {feature_type}', shell=True, check=True)
-#     subprocess.run(f'python {TRAIN} nonlinear {feature_type}', shell=True, check=True)
+for feature_type in FEATURE_TYPES:
+    subprocess.run(f'python {TRAIN} logistic {feature_type} --n-classes 2', shell=True, check=True)
+    subprocess.run(f'python {TRAIN} logistic {feature_type}', shell=True, check=True)
+    subprocess.run(f'python {TRAIN} nonlinear {feature_type}', shell=True, check=True)
 
 # Running trained models on Earth Microbiome Project and Black Sea data -------------------------------------------------------------------------
 # NOTE: This needs to be run on HPC, as the Earth Microbiome Project dataset is too large. 
@@ -32,17 +32,20 @@ for source in ['earth_microbiome', 'black_sea']:
 
 
 # Running trained models on synthetic contigs----------------------------------------------------------------------------------------------------
-# print('\nRunning trained models on synthetic contigs...\n')
+print('\nRunning trained models on synthetic contigs...\n')
 
-# for feature_type in ['nt_3mer', 'nt_4mer', 'nt_5mer']:
-#     model_path = os.path.join(MODELS_PATH, f'nonlinear_{feature_type}_ternary.joblib')
-#     output_path = os.path.join(RESULTS_PATH, f'predict_contigs_nonlinear_{feature_type}_ternary.csv')
-#     input_path = os.path.join(CONTIGS_PATH, 'datasets.h5')
+for feature_type in ['nt_3mer', 'nt_4mer', 'nt_5mer']:
+    model_path = os.path.join(MODELS_PATH, f'nonlinear_{feature_type}_ternary.joblib')
+    output_path = os.path.join(RESULTS_PATH, f'predict_contigs_nonlinear_{feature_type}_ternary.csv')
+    input_path = os.path.join(CONTIGS_PATH, 'datasets.h5')
     
-#     subprocess.run(f'python {PREDICT} -m {model_path} -f {feature_type} -i {input_path} -o {output_path}', shell=True, check=True)
+    subprocess.run(f'python {PREDICT} -m {model_path} -f {feature_type} -i {input_path} -o {output_path}', shell=True, check=True)
 
-# Phylogenetic cross-validation ----------------------------------------------------------------------------------------------------------------
+# Performing phylogenetic cross-validation -------------------------------------------------------------------------------------------------------
+# NOTE: This is really time-consuming for some feature types. I ran this on an external server using slurm, and submitted jobs in parallel.
+# NOTE: For the ko and aa_3mer feature types, which are high-dimensional, this took 3-5 hours per run.
+print('Performing phylogenetic cross-validation...')
 
-# for feature_type in FEATURE_TYPES:
-#     cmd = f'python {PHYLO_CV} nonlinear {feature_type}'
-#     subprocess.run(f'sbatch -J {feature_type} --time 24:00:00 --output={feature_type}.out --mem 64GB --wrap "{cmd}"', shell=True, check=True)
+for feature_type in FEATURE_TYPES:
+    cmd = f'python {PHYLO_CV} nonlinear {feature_type}'
+    subprocess.run(f'sbatch -J {feature_type} --time 24:00:00 --output={feature_type}.out --mem 64GB --wrap "{cmd}"', shell=True, check=True)

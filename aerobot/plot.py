@@ -239,14 +239,14 @@ def plot_phylo_cv(results:Dict[str, Dict], ax:plt.Axes=None, legend:bool=False, 
     :param color: If specified, the color of all lines in the plot. 
     ''' 
 
-    levels = ['Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species'][::-1]
+    levels = ['phylum', 'class', 'order', 'family', 'genus', 'species'][::-1]
     labels, handles = [], []
 
     for feature_type, results in results.items():
 
         # Plot the error bar, as well as scatter points for each level. 
-        means = [np.mean(results['scores'][level]) for level in levels] # Extract the mean F1 scores.
-        errs = [np.std(results['scores'][level]) / np.sqrt(len(results['scores'][level])) for level in levels] # Extract the standard errors. 
+        means = [np.mean(results[f'{level}_test_accs']) for level in levels] # Extract the mean F1 scores.
+        errs = [np.std(results[f'{level}_test_accs']) / np.sqrt(len(results[f'{level}_test_accs'])) for level in levels] # Extract the standard errors. 
         # Store information for the legend. 
         if color is not None:
             handles.append(ax.errorbar(np.arange(1, len(levels) + 1), means, yerr=errs, capsize=3, c=color)[0])

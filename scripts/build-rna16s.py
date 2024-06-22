@@ -99,7 +99,7 @@ if __name__ == '__main__':
     ids = metadata.index.unique().tolist()
 
     if not os.path.exists(RNA16S_FULL_LENGTH_PATH):
-        seqs = aerobot.entrez.download_rna16s_seqs(ids)
+        seqs = aerobot.ncbi.download_rna16s_seqs(ids)
         
         print(f'Writing full-length 16S sequences to {RNA16S_FULL_LENGTH_PATH}')
         with open(RNA16S_FULL_LENGTH_PATH, 'w') as f:
