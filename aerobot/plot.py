@@ -76,7 +76,7 @@ def plot_configure_mpl(title_font_size:int=6.5, label_font_size:float=6.5,
 
 
 # Pretty names for each feature type, for plotting. 
-PRETTY_NAMES = {'ko':'Gene families', 'embedding_oxygen_genes':'Oxygen gene set', 'chemical':'Chemical features', 'ko_terminal_oxidase_genes':'Terminal oxidase gene families'}
+PRETTY_NAMES = {'ko':'All gene families', 'embedding_oxygen_genes':'O$_2$ enzymes', 'chemical':'Chemical features', 'ko_terminal_oxidase_genes': 'Terminal oxidases'}
 PRETTY_NAMES['aa_1mer'] = 'Amino acid counts'
 PRETTY_NAMES['aa_2mer'] = 'Amino acid dimers'
 PRETTY_NAMES['aa_3mer'] = 'Amino acid trimers'
@@ -91,6 +91,11 @@ PRETTY_NAMES.update({'metadata':'Metadata', 'number_of_oxygen_genes':'Number of 
 PRETTY_NAMES.update({f'nt_{i}mer':f'Nucleotide {i}-mer' for i in range(4, 6)})
 PRETTY_NAMES.update({f'cds_{i}mer':f'CDS nucleotide {i}-mer' for i in range(4, 6)})
 
+
+PRETTY_NAMES_LONG = PRETTY_NAMES.copy()
+PRETTY_NAMES_LONG['KO.geneset.terminal_oxidase'] = 'Terminal oxidase counts'
+PRETTY_NAMES_LONG['embedding.geneset.oxygen'] = 'O$_2$ enzyme embeddings'
+PRETTY_NAMES_LONG['KO'] = 'All gene family counts'
 
 
 ANNOTATION_BASED_FEATURE_TYPES = ['number_of_oxygen_genes', 'percent_oxygen_genes', 'ko', 'ko_terminal_oxidase_genes', 'embedding_oxygen_genes']
@@ -206,7 +211,7 @@ def plot_model_accuracy_barplot(results:Dict[str, Dict], ax:plt.Axes=None, featu
     plt.legend(handles, labels,  loc='lower right')
     
     # Label bins with the feature name. 
-    ax.set_xticks(np.arange(0, len(feature_types), 1), [PRETTY_NAMES[f] for f in feature_types], rotation=45, ha='right')
+    ax.set_xticks(np.arange(0, len(feature_types), 1), [PRETTY_NAMES_LONG[f] for f in feature_types], rotation=45, ha='right')
 
     plot_balanced_accuracy_axis(ax, random_baseline=1/results[feature_types[0]]['n_classes'])
 
