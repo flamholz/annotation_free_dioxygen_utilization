@@ -26,6 +26,7 @@ def phylogenetic_cross_validation(dataset:FeatureDataset, n_splits:int=25, level
     if model_class == 'randrel':
         X = dataset.index()[groups != 'no rank']
     groups = groups[groups != 'no rank']
+    print(groups)
 
     # GroupShuffleSplit generates a sequence of randomized partitions in which a subset of groups are held out for each split.
     test_accs = []
@@ -33,7 +34,7 @@ def phylogenetic_cross_validation(dataset:FeatureDataset, n_splits:int=25, level
     for train_idxs, test_idxs in gss.split(X, y, groups=groups):
 
         if model_class == 'nonlinear':
-            model = NonlinearClassifier(input_dim=dataset.dims(), output_dim=n_classes)
+            model = NonlinearClassifier(input_dim=dataset.dims(), output_dim=n_classes, n_epochs=2)
             # For the Nonlinear classifier, need to further subdivide the training data into a training and validation set.
             val_idxs = np.random.choice(train_idxs, size=int(len(train_idxs) * 0.2), replace=False)
             train_idxs = [i for i in train_idxs if i not in val_idxs]
