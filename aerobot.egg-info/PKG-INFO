@@ -1,0 +1,8 @@
+Metadata-Version: 2.1
+Name: aerobot
+Version: 0.1
+Summary: Tool for predicting oxygen requirements from prokaryotic genomes
+Home-page: https://github.com/jgoldford/aerobot
+Author: Joshua E. Goldford, Avi Flamholz, Philippa Richter
+Author-email: prichter@caltech.edu
+License-File: LICENSE

@@ -1,0 +1,17 @@
+LICENSE
+README.md
+setup.cfg
+setup.py
+aerobot/__init__.py
+aerobot/dataset.py
+aerobot/models.py
+aerobot/ncbi.py
+aerobot/plot.py
+aerobot/utils.py
+aerobot.egg-info/PKG-INFO
+aerobot.egg-info/SOURCES.txt
+aerobot.egg-info/dependency_links.txt
+aerobot.egg-info/top_level.txt
+tests/__init__.py
+tests/test_dataset.py
+tests/test_models.py
