@@ -20,13 +20,15 @@ def phylogenetic_cross_validation(dataset:FeatureDataset, n_splits:int=25, level
     X, y = dataset.to_numpy()
 
     groups = dataset.taxonomy(level).values # Extract the taxonomy labels from the labels DataFrame.
+    assert np.all(~np.isnan(groups)), 'phylogenetic_cross_validation: None of the taxonomy labels should be NaNs.'
+    n_unranked = np.sum(groups == 'no rank')
+    print(f'phylogenetic_cross_validation: Removing {n_unranked} entries with no taxonomy label at level {level}.')
     # Filter out anything which does not have a taxonomic classification at the specified level.
     X, y = X[groups != 'no rank'], y[groups != 'no rank']
     # The RandomRelativeClassifier uses genome IDs as input, so need to adjust the X array accordingly. 
     if model_class == 'randrel':
         X = dataset.index()[groups != 'no rank']
     groups = groups[groups != 'no rank']
-    print(groups)
 
     # GroupShuffleSplit generates a sequence of randomized partitions in which a subset of groups are held out for each split.
     test_accs = []
@@ -34,7 +36,7 @@ def phylogenetic_cross_validation(dataset:FeatureDataset, n_splits:int=25, level
     for train_idxs, test_idxs in gss.split(X, y, groups=groups):
 
         if model_class == 'nonlinear':
-            model = NonlinearClassifier(input_dim=dataset.dims(), output_dim=n_classes, n_epochs=2)
+            model = NonlinearClassifier(input_dim=dataset.dims(), output_dim=n_classes)
             # For the Nonlinear classifier, need to further subdivide the training data into a training and validation set.
             val_idxs = np.random.choice(train_idxs, size=int(len(train_idxs) * 0.2), replace=False)
             train_idxs = [i for i in train_idxs if i not in val_idxs]
