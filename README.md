@@ -34,7 +34,13 @@ conda activate aerobot
 
 ## Data availability
 
-Prior to running any of the scripts below, data must be downloaded and stored in a data folder in the root directory of the repository. The expected file structure is given below. All data can be downloaded from [FigShare](https://figshare.com/articles/dataset/Annotation-free_prediction_of_microbial_dioxygen_utilization/26065345).
+Prior to running any of the scripts below, data must be downloaded and stored in a data folder in the root directory of the repository. This can be automated using the `download.py` script as follows.
+
+```
+python download.py
+```
+
+The expected file structure is given below. All data can be downloaded from [FigShare](https://figshare.com/articles/dataset/Annotation-free_prediction_of_microbial_dioxygen_utilization/26065345).
 
 
 ```
@@ -46,7 +52,6 @@ Prior to running any of the scripts below, data must be downloaded and stored in
 │   │   └── genomes
 │   ├── earth_microbiome
 │   ├── features
-│   ├── original
 │   └── rna16s
 ├── figures
 ├── models
