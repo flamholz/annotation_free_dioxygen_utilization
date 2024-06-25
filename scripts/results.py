@@ -50,5 +50,6 @@ print('Performing phylogenetic cross-validation...')
 #     cmd = f'python {PHYLO_CV} nonlinear {feature_type}'
 #     subprocess.run(f'sbatch -J {feature_type} --time 24:00:00 --output={feature_type}.out --mem 64GB --wrap "{cmd}"', shell=True, check=True)
 for feature_type in FEATURE_TYPES:
+    #if not os.path.exists(os.path.join(RESULTS_PATH, f'phylo_cv_logistic_{feature_type}_ternary.json')):
     subprocess.run(f'python {PHYLO_CV} logistic {feature_type}', shell=True, check=True)
  

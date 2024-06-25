@@ -115,6 +115,7 @@ def remove_suppressed(data:pd.DataFrame) -> pd.DataFrame:
     refseq_ids = np.array([id_.replace('GCA', 'GCF') for id_ in data.index])
     data = data[~np.isin(refseq_ids, SUPPRESSED_GENOME_IDS)]
     print(f'remove_suppressed: Removed {n - len(data)} suppressed entries.')
+    
     return data    
 
 

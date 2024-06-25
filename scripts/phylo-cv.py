@@ -3,7 +3,7 @@ from sklearn.model_selection import GroupShuffleSplit
 from sklearn.preprocessing import OneHotEncoder
 from aerobot.utils import FEATURE_TYPES, save_results_dict, RESULTS_PATH, DATA_PATH
 import argparse
-from aerobot.models import NonlinearClassifier, LogisticClassifier, RandomRelativeClassifier
+from aerobot.models import NonlinearClassifier, LogisticClassifier, RandomRelativeClassifier, LinearClassifier
 from typing import Dict, List, NoReturn
 import numpy as np 
 import pandas as pd
@@ -18,9 +18,9 @@ def phylogenetic_cross_validation(dataset:FeatureDataset, n_splits:int=25, level
     specified level is 'Class', then the closest relative to any member of the holdout set will be an organism in the same phylum. If 
     the level is 'Family', then the closest relative to any member of the holdout set will be an organism in the same order... etc.'''
     X, y = dataset.to_numpy()
-
-    groups = dataset.taxonomy(level).values # Extract the taxonomy labels from the labels DataFrame.
-    assert np.all(~np.isnan(groups)), 'phylogenetic_cross_validation: None of the taxonomy labels should be NaNs.'
+    # Need to fill NaNs with 'no rank,' because this was not done when building 16S datasets.
+    groups = dataset.taxonomy(level).fillna('no rank').values # Extract the taxonomy labels from the labels DataFrame.
+    # assert np.all(~np.isnan(groups)), 'phylogenetic_cross_validation: None of the taxonomy labels should be NaNs.'
     n_unranked = np.sum(groups == 'no rank')
     print(f'phylogenetic_cross_validation: Removing {n_unranked} entries with no taxonomy label at level {level}.')
     # Filter out anything which does not have a taxonomic classification at the specified level.
@@ -41,6 +41,13 @@ def phylogenetic_cross_validation(dataset:FeatureDataset, n_splits:int=25, level
             val_idxs = np.random.choice(train_idxs, size=int(len(train_idxs) * 0.2), replace=False)
             train_idxs = [i for i in train_idxs if i not in val_idxs]
             model.fit(X[train_idxs], y[train_idxs], X_val=X[val_idxs], y_val=y[val_idxs])
+        
+        elif model_class == 'linear':
+            model = LinearClassifier(input_dim=dataset.dims(), output_dim=n_classes)
+            # For the Linear classifier, need to further subdivide the training data into a training and validation set.
+            val_idxs = np.random.choice(train_idxs, size=int(len(train_idxs) * 0.2), replace=False)
+            train_idxs = [i for i in train_idxs if i not in val_idxs]
+            model.fit(X[train_idxs], y[train_idxs], X_val=X[val_idxs], y_val=y[val_idxs])
 
         elif model_class == 'logistic':
             model = LogisticClassifier(n_classes=n_classes)
@@ -50,15 +57,15 @@ def phylogenetic_cross_validation(dataset:FeatureDataset, n_splits:int=25, level
             model = RandomRelativeClassifier(level=level, n_classes=n_classes)
             model.fit(dataset.metadata)
 
-        test_accs.append(model.balanced_accuracy(X, y)) 
+        test_accs.append(model.balanced_accuracy(X[test_idxs], y[test_idxs])) 
 
     return test_accs
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('model-class', choices=['nonlinear', 'logistic', 'randrel'], help='The type of model to train.')
-    parser.add_argument('feature-type', type=str, choices=FEATURE_TYPES + ['none'], help='The feature type on which to train.')
+    parser.add_argument('model-class', choices=['nonlinear', 'logistic', 'randrel', 'linear'], help='The type of model to train.')
+    parser.add_argument('feature-type', type=str, choices=FEATURE_TYPES + ['none'] + ['embedding_rna16s'], help='The feature type on which to train.')
     parser.add_argument('--n-splits', default=5, type=int, help='The number of folds for K-fold cross validation.')
     parser.add_argument('--n-classes', default=3, type=int)
 
