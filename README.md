@@ -280,11 +280,11 @@ Prior to analyzing the prediction results, a series of filtering steps were appl
 ```
 #!/bin/bash
 
-model=path/to/models/nonlinear_aa_3mer_ternary.joblib
-input=path/to/data/black_sea/aa_3mer.csv
-output=/path/to/results/output.csv
+model_path=path/to/models/nonlinear_aa_3mer_ternary.joblib
+input_path=path/to/data/black_sea/aa_3mer.csv
+output_path=/path/to/results/output.csv
 
-python predict.py -m $model -i $input -o $output -f aa_3mer -t csv
+python predict.py -m $model_path -i $input_path -o $output_path -f aa_3mer
 ```
 
 
@@ -324,9 +324,28 @@ Each RNA sequence in the datasets was then passed into the LLM, producing an emb
 
 #### Model training
 
-A simple linear model was used for classifying genomes using the 16S sequences, consisting of only a single linear layer followed by a softmax activation function. We used an Adam optimizer with a weight decay of 0.01 and learning rate of 0.01. The model was trained for a maximum of 100 epochs on the training data, using batches of size 16. As with the multi-layer models, the validation dataset was used to implement early stopping  during the training process.
+A simple linear model was used for classifying genomes using the 16S sequences, consisting of only a single linear layer followed by a softmax activation function. We used an Adam optimizer with a weight decay of 0.01 and learning rate of 0.01. The model was trained for a maximum of 100 epochs on the training data, using batches of size 16. As with the multi-layer models, the validation dataset was used to implement early stopping  during the training process. 
+
+## Usage
+
+**NOTE:** Due to the computational cost of generating protein language model embeddings, and because we demonstrated that amino acid 3-mers were highly effective predictors of microbial oxygen utilization, we only include a script to produce k-mer feature types. 
 
 
-## Aerobot tool
+In order to apply the trained models to your own data, you will need a FASTA file containing the genome of interest; this genome can either be a complete genome sequence (nucleotides), or a set of protein sequences (amino acids). Then, apply the `encode-kmers.py` script to the FASTA file to generate a CSV file containing the k-mer embedded genome. The `kmer-size` argument specifies the k-mer length, and the `kmer-type` argument specifies the k-mer alphabet to use (which is either `nt` for nucleotides or `aa` for amino acids). 
 
-We are in the process of adapting this annotation-free approach for predicting microbial physiology into a command-line tool called aerobot. We hope that this tool will be complete in the next couple of months, and will update this repository with a link to the tool when it is available.
+```
+input_path = /path/to/genome.fasta
+output_path = /path/to/encodings.csv
+
+# If no output path is specified, then /path/to/genome_aa_3mer.csv will be the default. 
+python encode-kmers.py -i $input_path -o $output_path --kmer-size 3 --kmer-type aa
+```
+
+Then, the `predict.py` script can be used to generate a prediction from the k-mer-encoded genome. Make sure the model being loaded is of the correct feature type, and that the corresponding `feature_type` option is set to ensure that the encodings are correctly loaded by the underlying functions. 
+
+```
+model_path = /path/to/model/logistic_aa_3mer_ternary.joblib
+output_path = /path/to/predictions.csv 
+
+python predict.py -m $model_path -i /path/to/encodings.csv -o $output_path --feature-type aa_3mer
+```

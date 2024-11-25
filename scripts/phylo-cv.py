@@ -25,7 +25,7 @@ def phylogenetic_cross_validation(dataset:FeatureDataset, n_splits:int=25, level
     groups = dataset.taxonomy(level).fillna('no rank').values 
     dataset = dataset[groups != 'no rank']
     groups = groups[groups != 'no rank']
-    
+
     # GroupShuffleSplit generates a sequence of randomized partitions in which a subset of groups are held out for each split.
     test_accs = []
     gss = GroupShuffleSplit(n_splits=n_splits, test_size=0.2)
@@ -61,7 +61,7 @@ def phylogenetic_cross_validation(dataset:FeatureDataset, n_splits:int=25, level
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('model-class', choices=['nonlinear', 'logistic', 'randrel', 'linear'])
-    parser.add_argument('--feature-type', '-f', default=None, type=str)
+    parser.add_argument('feature-type', choices=FEATURE_TYPES + ['embedding_rna16s'] + ['none'], type=str)
     parser.add_argument('--n-splits', default=5, type=int)
     parser.add_argument('--n-classes', default=3, type=int)
     parser.add_argument('--data-path', default='../data/')
@@ -69,6 +69,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     model_class = getattr(args, 'model-class') # Get the model class to run.
+    feature_type = getattr(args, 'feature-type') # Get the model class to run.
+    feature_type = None if (feature_type == 'none') else feature_type
 
     datasets = load_datasets(args.feature_type, data_path=args.data_path)
     dataset = datasets['training'].concat(datasets['validation'])
