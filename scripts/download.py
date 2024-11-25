@@ -1,8 +1,8 @@
 import wget
 import os
 import gzip 
-from aerobot.utils import DATA_PATH
 import zipfile
+import argparse
 
 URLS = dict()
 URLS['suppressed_genomes.csv'] = 'https://figshare.com/ndownloader/files/47142253'
@@ -28,14 +28,20 @@ def extract(name:str):
 
 if __name__ == '__main__':
 
+    parser = parser.ArgumentParser()
+    parser.add_argument('data-path', help='Path where the data will be downloaded.')
+    args = parser.parse_args()
+
+    data_path = getattr(args, 'data-path')
+
     # Make the data directory in the project root directory.
-    if not os.path.exists(DATA_PATH):
-        os.mkdir(DATA_PATH)
+    if not os.path.exists(data_path):
+        os.mkdir(data_path)
 
     for name, url in URLS.items():
-        if name not in os.listdir(DATA_PATH):
+        if name not in os.listdir(data_path):
             print(f'\nDownloading {name}...')
-            wget.download(url, DATA_PATH)
+            wget.download(url, data_path)
         if 'zip' in name:
             extract(name)
 

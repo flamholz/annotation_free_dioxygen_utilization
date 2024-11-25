@@ -1,13 +1,12 @@
 import pandas as pd
 import numpy as np
-from aerobot.utils import MODELS_PATH, RESULTS_PATH, FEATURE_TYPES
-from aerobot.dataset import FeatureDataset, is_kmer_feature_type, order_features
+from aerobot.utils import FEATURE_TYPES
+from aerobot.dataset import FeatureDataset
 from aerobot.models import BaseClassifier
 from sklearn.linear_model import LogisticRegression
 import os
 import argparse
-from typing import Dict, NoReturn
-import time
+from typing import Dict, NoReturn, Tuple
 import pickle
 from warnings import simplefilter
 
@@ -17,43 +16,32 @@ simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model-path', '-m', type=str, help='Name of the pre-trained model to use. Expected to be stored in the models directory.')
-    parser.add_argument('--input-path', '-i', type=str, help='Path to the dataset. This should be stored in an H5 file.')
-    parser.add_argument('--input-type', '-t', type=str, choices=['csv', 'hdf'], default='hdf', help='Path to the dataset. This should be stored in an H5 file.')
-    parser.add_argument('--feature-type', '-f', type=str, default='aa_3mer', choices=FEATURE_TYPES + ['embedding_rna16s'], help='The feature type of the data.')
-    parser.add_argument('--output-path', '-o', type=str, default=None, help='The location to which the predictions will be written.')
+
+    parser.add_argument('--model-path', '-m', type=str)
+    parser.add_argument('--input-path', '-i', type=str) # Must be ah=n HDF5 or CSV file. 
+    parser.add_argument('--feature-type', '-f', type=str, default='aa_3mer', choices=FEATURE_TYPES + ['embedding_rna16s'])
+    parser.add_argument('--output-path', '-o', type=str, default=None)
 
     args = parser.parse_args()
-    t1 = time.perf_counter()
     
     model = BaseClassifier.load(args.model_path)
 
-    if args.input_type == 'hdf':
-        dataset = FeatureDataset(args.input_path, feature_type=args.feature_type) # Make sure the feature ordering is correct. 
-        ids = dataset.index()
-        X, y = dataset.to_numpy(n_classes=model.n_classes) # Extract the raw data from the input DataFrame.
-    elif args.input_type == 'csv':
-        data = order_features(pd.read_csv(args.input_path, index_col=0), args.feature_type)
-        # Make sure to normalize the k-mer feature types! This is usually handled by the FeatureDataset intializer, 
-        # but needs to be done manually when loading a CSV.
-        if is_kmer_feature_type(args.feature_type):
-            data = data.apply(lambda row : row / row.sum(), axis=1)
-        ids = data.index 
-        X, y = data.values, None
+    dataset = FeatureDataset(args.input_path, feature_type=args.feature_type)
+    predictions_df = model.predict(dataset)
 
-    y_pred = model.predict(X)
+    if dataset.labeled:
+        print('Balanced accuracy:', model.accuracy(dataset))
 
-    results = pd.DataFrame(index=ids) # Make sure to add the index back in!
-    results['prediction'] = y_pred.ravel() # Ravel because Nonlinear output is a column vector. 
+    if args.output_path is None:
+        input_file_name = os.path.basename(args.input_path)
+        input_file_name, _ = os.path.splitext(input_file_name)
+        output_path = os.path.join('.', 'predict_' + input_file_name + '.csv')
+    else:
+        output_path = args.output_path
 
-    if y is not None:
-        print('Balanced accuracy:', model.balanced_accuracy(X, y))
+    print(f'\nWriting results to {output_path}.')
+    predictions_df.to_csv(output_path)
 
-    print(f'\nWriting results to {args.output_path}.')
-    results.to_csv(args.output_path)
-    
-    t2 = time.perf_counter()
-    print(f'\nModel run complete in {np.round(t2 - t1, 2)} seconds.')
 
 
 

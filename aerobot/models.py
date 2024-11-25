@@ -10,7 +10,6 @@ from typing import Tuple, NoReturn, List, Dict
 from sklearn.linear_model import LogisticRegression
 import pandas as pd
 import copy 
-from aerobot.utils import DATA_PATH
 from sklearn.preprocessing import OneHotEncoder
 
 # Use a GPU if one is available. 
@@ -33,8 +32,8 @@ def get_batches(X:np.ndarray, y:np.ndarray, batch_size:int=16) -> Tuple[np.ndarr
 
 
 def process_outputs(output:np.ndarray):
-    '''Convert model outputs, which are Softmax-processed logits, to a Numpy array of zeros and ones. 
-    The output array can then be used with the inverse_transform method of the fitted encoder.'''
+    '''Convert model output, which is a (n_samples, n_classes) vector of Softmax-processed logits, to a Numpy array 
+    of zeros and ones. The output array can then be used with the inverse_transform method of the fitted one-hot encoder.'''
     y_pred = np.zeros(output.shape)
     # Find the maximum output in the three-value output, and set it to 1. Basically converting to a one-hot encoding.
     for i in range(len(output)):
@@ -44,26 +43,24 @@ def process_outputs(output:np.ndarray):
 
 
 class BaseClassifier():
+    binary_classes = {0:'tolerant', 1:'intolerant'}
+    ternary_classes = {0:'aerobe', 1:'anaerobe', 2:'facultative'}
 
     def __init__(self, n_classes:int=3):
         '''Initialization function for a classifier.'''
-        torch.manual_seed(42) # Seed the RNG for reproducibility.
         self.scaler = StandardScaler()
         self.n_classes = n_classes # Should be either 2 or 3 for binary or ternary classification. 
+        self.classes = BaseClassifier.binary_classes if (n_classes == 2) else BaseClassifier.ternary_classes
 
-    def balanced_accuracy(self, X:np.ndarray, y:np.ndarray) -> float:
-        y_pred = self.predict(X).ravel()
-        return balanced_accuracy_score(y, y_pred)
+    def _predict(self, X:np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        raise(NotImplementedError)
 
-    def confusion_matrix(self, X:np.ndarray, y:np.ndarray) -> np.ndarray:
-        y_pred = self.predict(X)
-        return confusion_matrix(y, y_pred)
-
-    def classes(self):
-        if self.n_classes == 3:
-            return ['aerobe', 'anaerobe', 'facultative']
-        else:
-            return ['tolerant', 'intolerant']
+    def _decode(self, output:np.ndarray) -> np.ndarray:
+        '''Converts model outputs, which is an array of probabilities with size (n_samples, n_classes), into predicted
+        labels.'''
+        labels = np.argmax(output, axis=1).ravel()
+        labels = [self.classes[l] for l in labels] # Convert indices back to strings. 
+        return np.array(labels)
 
     def save(self, path:str) -> NoReturn:
         '''Save the GeneralClassifier instance to a file.'''
@@ -74,6 +71,39 @@ class BaseClassifier():
         '''Load a saved GeneralClassifier object from a file.'''
         return joblib.load(path)
 
+    def predict(self, dataset) -> pd.DataFrame:
+        '''Prediction function to use externally. Returns a DataFrame containing both the raw model outputs
+        and the predicted labels. 
+
+        :param dataset: A FeatureDataset object containing encoded genomes. 
+        :return: A pandas DataFrame with a columns containing the certainty values for each class, as 
+            well as the predicted labels.'''
+        # Intialize a DataFrame to store the prediction. 
+        predictions_df = pd.DataFrame(index=dataset.ids)
+        predictions_df.index.name = 'genome_id'
+
+        X, _ = dataset.to_numpy() # Extract the features as a numpy array of shape (n_samples, n_features)
+        output, labels = self._predict(X)
+
+        if output is not None: # Output is None for the RandomRelativeClassifier
+            for i, c in self.classes.items():
+                predictions_df[c] = output[:, i].ravel()
+        predictions_df['label'] = labels
+
+        return predictions_df
+
+    def accuracy(self, dataset) -> float:
+        '''Compute the balanced accuracy on the input FeatureDataset.''' 
+        X, y = dataset.to_numpy(n_classes=self.n_classes)
+        _, labels = self._predict(X)
+        return balanced_accuracy_score(y, labels)
+
+    def confusion_matrix(self, dataset) -> np.ndarray:
+        '''Compute the confusion matrix on the input FeatureDataset.'''
+        X, y = dataset.to_numpy(n_classes=self.n_classes)
+        _, labels = self._predict(X)
+        return confusion_matrix(y, labels)
+
 
 class RandomRelativeClassifier(BaseClassifier):
 
@@ -83,22 +113,22 @@ class RandomRelativeClassifier(BaseClassifier):
         self.level = level
         self.n_classes = n_classes
 
-    def fit(self, metadata:pd.DataFrame):
-        self.taxonomy = metadata[[self.level, 'physiology']]
+    def fit(self, dataset):
+        self.taxonomy = dataset.metadata[[self.level, 'physiology']]
         if self.n_classes == 2:
             self.taxonomy = self.taxonomy.replace({'Aerobe':'tolerant', 'Facultative':'tolerant', 'Anaerobe':'intolerant'})
         elif self.n_classes == 3:
             self.taxonomy = self.taxonomy.replace({'Aerobe':'aerobe', 'Facultative':'facultative', 'Anaerobe':'anaerobe'})
 
-    def predict(self, X:np.ndarray):
+    def _predict(self, X:np.ndarray):
         # Get the taxonomy label at self.level for each genome ID in X.
         X_taxonomy = self.taxonomy.loc[X.ravel(), self.level].values
-        y_pred = []
+        labels = []
         for t in X_taxonomy:
             relatives = self.taxonomy[self.taxonomy[self.level] == t] # Get all relatives at the specified level.
-            y_pred.append(np.random.choice(relatives.physiology.values)) # Choose a random physiology label from among the relatives. 
-        y_pred = np.array(y_pred).ravel()
-        return y_pred
+            labels.append(np.random.choice(relatives.physiology.values)) # Choose a random physiology label from among the relatives. 
+        labels = np.array(labels).ravel()
+        return None, labels
 
 
 class BasePytorchClassifier(torch.nn.Module, BaseClassifier):
@@ -117,52 +147,58 @@ class BasePytorchClassifier(torch.nn.Module, BaseClassifier):
 
         self.n_epochs = n_epochs
         self.batch_size = batch_size
-        self.encoder = sklearn.preprocessing.OneHotEncoder(handle_unknown='error', sparse_output=False)
 
+    def _encode(self, labels:np.ndarray) -> torch.FloatTensor:
+        '''Converts an array of strings labels into a one-hot encoded PyTorch tensor.'''
+        classes = {v:k for k, v in self.classes.items()}
+        labels = [classes[l] for l in labels] # Convert the string labels to integers. 
+        labels = torch.Tensor(labels).to(torch.int64) # Convert to a tensor of integers for compatibility with one-hot encoder. 
+        # If number of classes is not set, it will be inferred as one greater than the largest class value in the input tensor.
+        return torch.nn.functional.one_hot(labels, num_classes=self.n_classes).to(torch.float32) # Need to convert back to float. 
 
     def forward(self, X:np.ndarray) -> torch.FloatTensor:
         '''A forward pass of the model.'''
         X = torch.FloatTensor(X).to(device) # Convert numpy array to Tensor. Make sure it is on the GPU, if available.
         return self.classifier(X)
-
-    def classes(self):
-        return self.encoder.categories_[0]
-
-    def _loss(self, y_pred, y, weight:None):
-        raise(NotImplementedError) 
+        
+    def _predict(self, X:np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        '''Predict function for using internally. Returns the model outputs converted to string labels, 
+        for use with the balanced accuracy function.
+        
+        :param X: A numpy array of shape (n_samples, n_features) which contains the genome embeddings. 
+        :return: A numpy array of shape (n_samples) containing predicted class labels for each sample. 
+        '''
+        self.eval() # Model in evaluation mode.
+        X = self.scaler.transform(X) # Don't forget to Z-score scale the data!
+        output = self(X).detach().numpy() # Convert output tensor to numpy array. 
+        labels = self._decode(output) # Convert back to string labels. 
+        self.train()
+        return output, labels
 
     def _acc(self, X:np.ndarray, y:np.ndarray) -> float:
-        y = self.encoder.inverse_transform(y)
+        _, labels = self._predict(X) # Get the predicted labels. 
+        y = self._decode(y.detach().numpy()) # y has been one-hot encoded, so need to convert back to labels. 
+        return balanced_accuracy_score(y, labels)
 
-        output = self(X).detach().numpy() # Convert output tensor to numpy array. 
-        y_pred = process_outputs(output)
-        y_pred = self.encoder.inverse_transform(y_pred).ravel()
-        # Can't use the predict function here, as it applies the StandardScaler twice. 
-        # y_pred = self.classifier.predict(X) # We want the decoded outputs. 
-
-        return balanced_accuracy_score(y, y_pred) 
-
-    def _loss(self, y_pred, y, weight:np.ndarray=None):
-        '''Implement the loss function specified on initialization.'''
-        # Make sure everything is FloatTensors.
-        y_pred = torch.FloatTensor(y_pred)
-        y = torch.FloatTensor(y)
-        weight = torch.FloatTensor([1] * self.n_classes) if weight is None else torch.FloatTensor(weight)
+    def _loss(self, output, y, weight=None):
+        '''Mean-squared error loss.'''
+        weight = torch.FloatTensor([1] * self.n_classes) if (weight is None) else weight
         # Get a 16-dimensional column vector of weights for each row. 
         weight = torch.matmul(y, weight.reshape(self.n_classes, 1))
-        return torch.mean((y - y_pred)**2 * weight)
+        return torch.mean((y - output)**2 * weight)
 
-    def fit(self, X:np.ndarray, y:np.ndarray, X_val:np.ndarray, y_val:np.ndarray):
+    def fit(self, dataset, val_dataset):
         '''Train the classifier on input data.'''
-
-        X = self.scaler.fit_transform(X)
-        y = self.encoder.fit_transform(y.reshape(-1, 1)) # One-hot encode the training targets. 
-        X_val = self.scaler.transform(X_val)
-        y_val = self.encoder.transform(y_val.reshape(-1, 1))
- 
+        X, y = dataset.to_numpy(n_classes=self.n_classes)
+        X_val, y_val = val_dataset.to_numpy(n_classes=self.n_classes)
+        
         # Compute loss weights as the inverse frequency.
-        weight = [1 / (np.sum(self.encoder.inverse_transform(y) == c) / len(y)) for c in self.encoder.categories_[0]] 
+        weight = torch.FloatTensor([1 / ((y == self.classes[i]).sum() / len(y)) for i in range(self.n_classes)])
 
+        X = self.scaler.fit_transform(X) 
+        X_val = self.scaler.transform(X_val)
+        y, y_val = self._encode(y), self._encode(y_val) # One-hot encode the labels. 
+ 
         best_epoch, best_model_weights = 0, copy.deepcopy(self.state_dict()) 
 
         self.train() # Model in train mode. 
@@ -177,7 +213,7 @@ class BasePytorchClassifier(torch.nn.Module, BaseClassifier):
                 train_loss.backward()
                 self.optimizer.step()
               
-            self.train_losses.append(self._loss(self(X), y, weight).item()) # Store the average weighted train losses over the epoch. 
+            self.train_losses.append(self._loss(self(X), y, weight=weight).item()) # Store the average weighted train losses over the epoch. 
             self.train_accs.append(self._acc(X, y)) # Store model accuracy on the training dataset. 
             self.val_losses.append(self._loss(self(X_val), y_val).item()) # Store the unweighted loss on the validation data.
             self.val_accs.append(self._acc(X_val, y_val)) # Store model accuracy on the validation dataset. 
@@ -191,15 +227,6 @@ class BasePytorchClassifier(torch.nn.Module, BaseClassifier):
         print(f'PyTorchClassifier.fit: Best validation accuracy of {np.round(max(self.val_accs), 2)} achieved at epoch {self.best_epoch}.')
 
 
-    def predict(self, X:np.ndarray) -> np.ndarray:
-        self.eval() # Model in evaluation mode.
-        X = self.scaler.transform(X) # Don't forget to Z-score scale the data!
-        output = self(X).detach().numpy() # Convert output tensor to numpy array. 
-        y_pred = process_outputs(output)
-        self.train()
-        return self.encoder.inverse_transform(y_pred).ravel()
-
-
 class LogisticClassifier(BaseClassifier):
 
     def __init__(self, n_classes:int=3):
@@ -208,26 +235,32 @@ class LogisticClassifier(BaseClassifier):
         # Use the legacy parameters from before my time on this project.
         self.classifier = LogisticRegression(penalty='l2', C=100, max_iter=100000)
 
-    def fit(self, X:np.ndarray, y:np.ndarray) -> NoReturn:
+    def _encode(self, labels:np.ndarray) -> np.ndarray:
+        '''Converts an array of strings labels into a numpy array of integers. Although the LogisticRegression object
+        works with strings, this ensures consistent ordering of classes.'''
+        classes = {v:k for k, v in self.classes.items()}
+        labels = [classes[l] for l in labels] # Convert the string labels to integers. 
+        # If number of classes is not set, it will be inferred as one greater than the largest class value in the input tensor.
+        return np.array(labels)
 
+
+    def fit(self, dataset) -> NoReturn:
+        X, y = dataset.to_numpy(self.n_classes)
+        y = self._encode(y)
         X = self.scaler.fit_transform(X) # Don't forget to Z-scale!
         self.classifier.fit(X, y)
 
-    def predict(self, X:np.ndarray) -> np.ndarray:
-
+    def _predict(self, X:np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        
         X = self.scaler.transform(X)
-        return self.classifier.predict(X)
-
+        output = self.classifier.predict_proba(X) # Returns an array of shape n_samples, n_classes. 
+        labels = self._decode(output) # Convert back to string labels. 
+        return output, labels
 
 
 class LinearClassifier(BasePytorchClassifier):
 
-    def __init__(self, 
-        input_dim:int=None, 
-        output_dim:int=None, 
-        lr:float=0.01, 
-        n_epochs:int=100, 
-        batch_size:int=16):
+    def __init__(self, input_dim:int=None, output_dim:int=None, lr:float=0.01, n_epochs:int=100, batch_size:int=16):
         '''Initialize a Nonlinear classifier.'''        
         BasePytorchClassifier.__init__(self, n_epochs=n_epochs, n_classes=output_dim, batch_size=batch_size)
         self.classifier = torch.nn.Sequential(torch.nn.Linear(input_dim, output_dim), torch.nn.Softmax(dim=1))

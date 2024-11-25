@@ -15,19 +15,6 @@ import warnings
 # Ignore some annoying warnings triggered when saving HDF files.
 warnings.filterwarnings('ignore', category=pd.io.pytables.PerformanceWarning)
 
-ROOT_PATH, _ = os.path.split(os.path.abspath(__file__))
-
-DATA_PATH = os.path.join(ROOT_PATH, '..', 'data')
-MODELS_PATH = os.path.join(ROOT_PATH, '..', 'models')
-SCRIPTS_PATH = os.path.join(ROOT_PATH, '..', 'scripts')
-FIGURES_PATH = os.path.join(ROOT_PATH, '..', 'figures')
-RESULTS_PATH = os.path.join(ROOT_PATH, '..', 'results')
-
-# Paths to subdirectories within the data directory. 
-CONTIGS_PATH = os.path.join(DATA_PATH, 'contigs')
-FEATURES_PATH = os.path.join(DATA_PATH, 'features')
-RNA16S_PATH = os.path.join(DATA_PATH, 'rna16s')
-
 
 FEATURE_TYPES = ['ko', 'ko_terminal_oxidase_genes']
 FEATURE_TYPES += ['chemical']
@@ -54,11 +41,6 @@ class NumpyEncoder(json.JSONEncoder):
         if isinstance(obj, np.bool_):
             return bool(obj)
         return super(NumpyEncoder, self).default(obj)
-
-class NumpyDecoder(json.JSONDecoder):
-    # TODO: This might be overkill, but for converting JSON stuff back to numpy objects.
-    pass
-
 
 def save_results_dict(results:Dict, path:str) -> NoReturn:
     '''Write a dictionary of results to the output path.

@@ -55,17 +55,21 @@ def from_dataframe(df:pd.DataFrame, k:int=3) -> Dict[str, int]:
 
 
 
-def from_records(records:List[SeqRecord], k:int=3, allowed_kmers:List[str]=None):
+def from_records(records:List[SeqRecord], k:int=3, allowed_kmers:List[str]=None, genome_id:str='', ignore_file_ids:bool=False):
     '''Takes a list of SeqRecords as input, which have been read in form a FASTA file. 
     This function does not assume that all sequences contained in the records belong to the same
     sequence object (i.e. genome, contig), so first groups the sequences by ID.'''
 
     # Group the sequences represented by the records according to their ID.
-    seqs_by_id = dict()
-    for record in records:
-        if record.id not in seqs_by_id:
-            seqs_by_id[record.id] = []
-        seqs_by_id[record.id].append(str(record.seq))
+
+    if not ignore_file_ids:
+        seqs_by_id = dict()
+        for record in records:
+            if record.id not in seqs_by_id:
+                seqs_by_id[record.id] = []
+            seqs_by_id[record.id].append(str(record.seq))
+    else:
+        seqs_by_id = {genome_id:[str(record.seq) for record in records]}
 
     kmers, ids = [], []
     for id_, seqs in tqdm(seqs_by_id.items(), desc='kmers.from_records'):
