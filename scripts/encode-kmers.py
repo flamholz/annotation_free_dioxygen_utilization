@@ -36,7 +36,7 @@ if __name__ == '__main__':
         output_path = os.path.join(output_path, output_file_name)
 
     # The DataFrame produced by this function already has the genome
-    kmer_df = kmer.from_records(records, k=args.kmer_size, allowed_kmers=allowed_kmers, genome_id=genome_id, ignore_file_ids=True)
-    print(f'Saved k-mers of size {args.kmer_size} to {args.output_path}')
-    kmer.to_csv(args.output_path)
+    kmer_df = kmers.from_records(records, k=args.kmer_size, allowed_kmers=allowed_kmers, genome_id=genome_id, ignore_file_ids=True)
+    print(f'Saved k-mers of size {args.kmer_size} to {output_path}')
+    kmer_df.to_csv(output_path)
 
