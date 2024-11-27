@@ -83,7 +83,7 @@ class FeatureDataset():
             self.features = self.features.fillna(0)
 
         elif file_type == '.csv':
-            self.features = pd.read_csv(args.input_path, index_col=0) 
+            self.features = pd.read_csv(path, index_col=0) 
             self.metadata = None
             self.labeled = False
 

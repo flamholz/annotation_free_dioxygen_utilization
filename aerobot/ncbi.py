@@ -2,7 +2,6 @@ from Bio import Entrez, SeqIO
 import pandas as pd 
 import gzip
 import time 
-from aerobot.utils import RESULTS_PATH, DATA_PATH
 import numpy as np 
 import os
 from tqdm import tqdm
@@ -20,7 +19,6 @@ import shutil
 
 # https://www.ncbi.nlm.nih.gov/books/NBK25497/#chapter2.chapter2_table1
 
-GENOMES_PATH = os.path.join(DATA_PATH, 'contigs', 'genomes')
 
 Entrez.email = 'prichter@caltech.edu'
 Entrez.api_key = '2ff07cb20e93ddb8b358f92f91cae939e209'
@@ -61,7 +59,7 @@ def download_taxonomy(ids:List[str]):
     return df
 
 
-def download_genomes(genome_ids, path:str=os.path.join(DATA_PATH, 'contigs', 'genomes')):
+def download_genomes(genome_ids, path:str=None):
 
     archive_path = os.path.join(path, 'ncbi_dataset.zip')
 
