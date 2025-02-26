@@ -3,7 +3,7 @@ import matplotlib as mpl
 import numpy as np 
 import pandas as pd
 from matplotlib.colors import ListedColormap
-from aerobot.utils import FEATURE_TYPES, RESULTS_PATH, load_results_dict
+from aerobot.utils import load_results_dict, FEATURE_TYPES
 import matplotlib.ticker as ticker
 import seaborn as sns
 from typing import Dict, NoReturn, List
