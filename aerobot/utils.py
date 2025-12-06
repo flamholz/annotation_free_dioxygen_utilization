@@ -13,6 +13,7 @@ import pickle
 import warnings 
 import importlib.resources as resources
 import io
+import re
 
 
 # Ignore some annoying warnings triggered when saving HDF files.
