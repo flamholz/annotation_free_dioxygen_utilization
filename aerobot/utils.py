@@ -44,9 +44,9 @@ def is_kmer_feature_type(feature_type:str):
     if feature_type is None:
         return False
     return re.match(r'(nt|aa|cds)_(\d)mer', feature_type) is not None
-    
 
-def clean_features(feature_type:str) -> List[str]:
+
+def clean_features(feature_type:str):
     # Remove ambiguous bases and amino acids. The removed symbols indicate that the base or amino acid is unknown, and 
     # do not occur very frequently. 
     def is_valid_column(col:str) -> bool:
