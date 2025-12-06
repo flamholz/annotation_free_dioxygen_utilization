@@ -73,7 +73,7 @@ class FeatureDataset():
         self.ids = self.features.index 
 
         if (feature_type == 'embedding_rna16s') or (feature_type is None):  # Make sure the column ordering of the feature columns is consistent. 
-            self.features = self.features.reindex(columns=df.columns.union(FEATURE_ORDERS[feature_type]), fill_value=0)
+            self.features = self.features.reindex(columns=FEATURE_ORDERS[feature_type], fill_value=0)
 
         # If the normalize option is specified, and the feature type needs to be normalized, then normalize the rows. 
         if normalize and is_kmer_feature_type(feature_type):
