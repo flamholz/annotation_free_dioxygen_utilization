@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
                 dataset_type = os.path.basename(input_path).replace('_datasets.h5', '')
                 output_file_name = f'{dataset_type}_{model_name}' # Model name already contains the feature type.
-                output_path = os.path.join(args.output_dir, )
+                output_path = os.path.join(args.results_dir, output_file_name)
                 predictions_df.to_csv(output_path)
                 print(f'Output written to {output_path}')
 
