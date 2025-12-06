@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from aerobot.utils import save_hdf, DATA_PATH, FEATURE_TYPES, training_testing_validation_split, FEATURES_PATH
+from aerobot.utils import save_hdf, FEATURE_TYPES, training_testing_validation_split, RESOURCES
 from aerobot.features import chemical
 import aerobot
 import os
@@ -121,6 +121,9 @@ def remove_suppressed(data:pd.DataFrame) -> pd.DataFrame:
 
 
 if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data-dir')
 
     # download_data() # Download training data from Google Cloud if it has not been already.
     datasets = dict()

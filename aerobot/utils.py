@@ -11,11 +11,19 @@ from tqdm import tqdm
 from Bio.SeqRecord import SeqRecord
 import pickle
 import warnings 
+import importlib.resources as resources
+import io
+
 
 # Ignore some annoying warnings triggered when saving HDF files.
 warnings.filterwarnings('ignore', category=pd.io.pytables.PerformanceWarning)
 
+RESOURCES = dict()
+for resource in ['terminal_oxidase_genes', 'aa_chemical_features', 'nt_chemical_features', 'suppressed_genomes']:
+    RESOURCES[resource] = pd.read_csv(io.StringIO(resources.files('aerobot.data').joinpath(f'{resource}.csv').read_text()))
 
+
+FEATURE_TYPES = dict()
 FEATURE_TYPES = ['ko', 'ko_terminal_oxidase_genes']
 FEATURE_TYPES += ['chemical']
 FEATURE_TYPES += ['embedding_genome', 'embedding_oxygen_genes'] #, 'embedding_rna16s'] 
@@ -24,7 +32,19 @@ FEATURE_TYPES += [f'nt_{i}mer' for i in range(1, 6)]
 FEATURE_TYPES += [f'cds_{i}mer' for i in range(1, 6)]
 FEATURE_TYPES += [f'aa_{i}mer' for i in range(1, 4)]
 
-AMINO_ACIDS = ['A', 'R', 'N', 'D', 'C', 'E', 'Q', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', 'U']
+
+FEATURE_COLUMN_DTYPES = {feature_type:str for feature_type in FEATURE_TYPES}
+FEATURE_COLUMN_DTYPES['embedding_genome'] = int 
+FEATURE_COLUMN_DTYPES['embedding_oxygen_genes'] = int
+
+
+
+# Load the feature orders for consistency, i.e. ensuring the feature orders are the same as the vectors the models are trained on. 
+FEATURE_ORDERS = dict()
+for feature_type in FEATURE_TYPES:
+    FEATURE_ORDERS[feature_type] = np.loadtxt(io.StringIO(resources.files('aerobot.data').joinpath(f'features/{feature_type}.txt').read_text()), dtype=FEATURE_COLUMN_DTYPES[feature_type]) 
+
+AMINO_ACIDS = [ 'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', 'X']
 NUCLEOTIDES = ['A', 'C', 'T', 'G']
 
 

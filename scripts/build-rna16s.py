@@ -3,7 +3,7 @@ import numpy as np
 from Bio import pairwise2
 from Bio import SeqIO
 from Bio.Seq import Seq
-from aerobot.utils import RNA16S_PATH, save_hdf, training_testing_validation_split
+from aerobot.utils import rna_16s_dir, save_hdf, training_testing_validation_split
 from aerobot.features import rna16s
 import aerobot.entrez
 import pandas as pd

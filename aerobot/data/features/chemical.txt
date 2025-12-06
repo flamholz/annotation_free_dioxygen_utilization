@@ -1,0 +1,9 @@
+gc_content
+number_of_genes
+aa_mean_num_carbon
+aa_mean_num_oxygen
+aa_mean_num_nitrogen
+aa_mean_num_sulfur
+cds_mean_num_carbon
+cds_mean_num_oxygen
+cds_mean_num_nitrogen
