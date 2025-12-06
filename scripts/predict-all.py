@@ -25,7 +25,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--models-dir', type=str, default='../models')
     parser.add_argument('--data-dir', type=str, default='../data/') # Must be ah=n HDF5 or CSV file. 
-    parser.add_argument('--results-dir', type=str, default='../data/results/12_16_2025/')
+    parser.add_argument('--results-dir', type=str, default='../results/12_16_2025/')
     args = parser.parse_args()
 
     input_file_names = ['training_datasets.h5', 'testing_datasets.h5']
@@ -33,15 +33,19 @@ if __name__ == '__main__':
 
     for feature_type in FEATURE_TYPES:
         for input_path in input_paths:
-                model_name, model = get_model(feature_type, args.models_dir)
-                dataset = FeatureDataset(input_path, feature_type=feature_type)
-                predictions_df = model.predict(dataset)
+                try:
+                    model_name, model = get_model(feature_type, args.models_dir)
+                    dataset = FeatureDataset(input_path, feature_type=feature_type)
+                    predictions_df = model.predict(dataset)
 
-                dataset_type = os.path.basename(input_path).replace('_datasets.h5', '')
-                output_file_name = f'{dataset_type}_{model_name}' # Model name already contains the feature type.
-                output_path = os.path.join(args.results_dir, output_file_name)
-                predictions_df.to_csv(output_path)
-                print(f'Output written to {output_path}')
+                    dataset_type = os.path.basename(input_path).replace('_datasets.h5', '')
+                    output_file_name = f'{dataset_type}_{model_name}' # Model name already contains the feature type.
+                    output_path = os.path.join(args.results_dir, output_file_name)
+                    predictions_df.to_csv(output_path)
+                    print(f'Output written to {output_path}')
+                except Exception as err:
+                    print(f'Failed on feature type {feature_type} and input {input_path}.')
+                    print(err)
 
 
 
