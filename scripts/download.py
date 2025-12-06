@@ -5,7 +5,6 @@ import zipfile
 import argparse
 
 urls = dict()
-urls['suppressed_genomes.csv'] = 'https://figshare.com/ndownloader/files/47142253'
 urls['rna16s.zip'] = 'https://figshare.com/ndownloader/files/47142751'
 urls['black_sea.zip'] = 'https://figshare.com/ndownloader/files/47186161'
 urls['contigs.zip'] = 'https://figshare.com/ndownloader/files/47186182'

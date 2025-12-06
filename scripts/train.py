@@ -2,7 +2,7 @@ from aerobot.models import LinearClassifier, NonlinearClassifier, LogisticClassi
 import argparse
 from aerobot.utils import FEATURE_TYPES, save_results_dict
 import time
-from aerobot.dataset import FeatureDataset, FEATURE_TYPES
+from aerobot.dataset import FeatureDataset 
 import os
 import numpy as np
 import json 
