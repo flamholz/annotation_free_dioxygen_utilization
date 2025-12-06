@@ -47,7 +47,7 @@ def is_kmer_feature_type(feature_type:str):
     return re.match(r'(nt|aa|cds)_(\d)mer', feature_type) is not None
 
 
-def clean_features(feature_type:str):
+def clean_features(feature_type:str, order:list):
     # Remove ambiguous bases and amino acids. The removed symbols indicate that the base or amino acid is unknown, and 
     # do not occur very frequently. 
     def is_valid_column(col:str) -> bool:
@@ -61,7 +61,7 @@ def clean_features(feature_type:str):
 FEATURE_ORDERS = dict()
 for feature_type in FEATURE_TYPES:
     FEATURE_ORDERS[feature_type] = np.loadtxt(io.StringIO(resources.files('aerobot.data').joinpath(f'features/{feature_type}.txt').read_text()), dtype=FEATURE_COLUMN_DTYPES[feature_type]) 
-FEATURE_ORDERS = {feature_type:clean_features(order) for feature_type, order in FEATURE_ORDERS.items()}
+FEATURE_ORDERS = {feature_type:clean_features(feature_type, order) for feature_type, order in FEATURE_ORDERS.items()}
 
 class NumpyEncoder(json.JSONEncoder):
     '''Encoder for converting numpy data types into types which are JSON-serializable. Based
