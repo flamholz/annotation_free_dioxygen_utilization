@@ -19,7 +19,8 @@ import re
 # Ignore some annoying warnings triggered when saving HDF files.
 warnings.filterwarnings('ignore', category=pd.io.pytables.PerformanceWarning)
 
-AMINO_ACIDS = [ 'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y']
+
+AMINO_ACIDS = ['A', 'R', 'N', 'D', 'C', 'E', 'Q', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', 'U']
 NUCLEOTIDES = ['A', 'C', 'T', 'G']
 
 RESOURCES = dict()
@@ -53,9 +54,7 @@ def clean_features(feature_type:str, order:list):
     def is_valid_column(col:str) -> bool:
         ref = AMINO_ACIDS if re.match(r'aa_(\d)mer', feature_type) else NUCLEOTIDES
         return np.all([elem in ref for elem in col])
-    print(feature_type)
     if is_kmer_feature_type(feature_type): 
-        print(f'it is a kmer {feature_type}')
         order = [f for f in order if is_valid_column(f)]
     return order
 
