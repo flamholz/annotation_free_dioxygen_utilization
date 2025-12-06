@@ -3,49 +3,10 @@ import numpy as np
 import os
 import subprocess as sb
 from typing import Dict, NoReturn, Tuple, List
-from aerobot.utils import FEATURE_TYPES, AMINO_ACIDS, NUCLEOTIDES, FEATURE_ORDERS
+from aerobot.utils import FEATURE_TYPES, AMINO_ACIDS, NUCLEOTIDES, FEATURE_ORDERS, is_kmer_feature_type
 import re
 import copy
 
-
-def is_kmer_feature_type(feature_type:str):
-    if feature_type is None:
-        return False
-    if re.match(r'aa_(\d)mer', feature_type) is not None:
-        return True
-    # NOTE: nt_ is in "percent_oxygen_genes," so need to be careful here!
-    if re.match(r'nt_(\d)mer', feature_type) is not None:
-        return True 
-    if re.match(r'cds_(\d)mer', feature_type) is not None:
-        return True
-    else:
-        return False 
-
-
-    
-def order_features(features:pd.DataFrame, feature_type:str, verbose:bool=False) -> pd.DataFrame:
-    '''Ensure that the order of the feature columns in the input DataFrame matches the order of the feature columns in the 
-    training dataset. 
-
-    :param features: A DataFrame containing the genome features. 
-    :param feature_type: The type of the features contained in the DataFrame. 
-    ''' 
-    # Don't try to order the 16S embedding features, or if there are no loaded features (which is true when doing 
-    # phylogenetic cross-validation). 
-
-
-    order = FEATURE_ORDERS[feature_type]
-    missing_cols = [c for c in order if c not in features.columns]
-    
-    if verbose: # Printing some stuff for debugging purposes. 
-        print('order_features:', len(missing_cols), 'columns missing from the', feature_type, 'data.')
-        print('order_features:', len([c for c in features.columns if c not in order]), 'extraneous columns in the', feature_type, 'data.')
-
-    # If the data is missing a feature, fill it in with zeros.
-    filler = pd.DataFrame(0, index=features.index, columns=missing_cols)
-    features = pd.concat([features, filler], axis=1)
-
-    return features[order]
 
 
 class FeatureDataset():

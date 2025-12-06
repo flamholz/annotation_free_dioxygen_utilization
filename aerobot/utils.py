@@ -18,6 +18,9 @@ import io
 # Ignore some annoying warnings triggered when saving HDF files.
 warnings.filterwarnings('ignore', category=pd.io.pytables.PerformanceWarning)
 
+AMINO_ACIDS = [ 'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y']
+NUCLEOTIDES = ['A', 'C', 'T', 'G']
+
 RESOURCES = dict()
 for resource in ['terminal_oxidase_genes', 'aa_chemical_features', 'nt_chemical_features', 'suppressed_genomes']:
     RESOURCES[resource] = pd.read_csv(io.StringIO(resources.files('aerobot.data').joinpath(f'{resource}.csv').read_text()))
@@ -37,16 +40,27 @@ FEATURE_COLUMN_DTYPES = {feature_type:str for feature_type in FEATURE_TYPES}
 FEATURE_COLUMN_DTYPES['embedding_genome'] = int 
 FEATURE_COLUMN_DTYPES['embedding_oxygen_genes'] = int
 
+def is_kmer_feature_type(feature_type:str):
+    if feature_type is None:
+        return False
+    return re.match(r'(nt|aa|cds)_(\d)mer', feature_type) is not None
+    
 
+def clean_features(feature_type:str) -> List[str]:
+    # Remove ambiguous bases and amino acids. The removed symbols indicate that the base or amino acid is unknown, and 
+    # do not occur very frequently. 
+    def is_valid_column(col:str) -> bool:
+        ref = AMINO_ACIDS if re.match(r'aa_(\d)mer', feature_type) else NUCLEOTIDES
+        return np.all([elem in ref for elem in col])
+    if is_kmer_feature_type(feature_type): 
+        order = [f for f in order if is_valid_column(f)]
+    return order
 
 # Load the feature orders for consistency, i.e. ensuring the feature orders are the same as the vectors the models are trained on. 
 FEATURE_ORDERS = dict()
 for feature_type in FEATURE_TYPES:
     FEATURE_ORDERS[feature_type] = np.loadtxt(io.StringIO(resources.files('aerobot.data').joinpath(f'features/{feature_type}.txt').read_text()), dtype=FEATURE_COLUMN_DTYPES[feature_type]) 
-
-AMINO_ACIDS = [ 'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', 'X']
-NUCLEOTIDES = ['A', 'C', 'T', 'G']
-
+FEATURE_ORDERS = {feature_type:clean_features(order) for feature_type, order in FEATURE_ORDERS.items()}
 
 class NumpyEncoder(json.JSONEncoder):
     '''Encoder for converting numpy data types into types which are JSON-serializable. Based
