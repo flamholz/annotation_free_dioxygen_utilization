@@ -65,6 +65,7 @@ for feature_type in FEATURE_TYPES:
     FEATURE_ORDERS[feature_type] = np.loadtxt(io.StringIO(resources.files('aerobot.data').joinpath(f'features/{feature_type}.txt').read_text()), dtype=FEATURE_COLUMN_DTYPES[feature_type]) 
 FEATURE_ORDERS = {feature_type:clean_features(feature_type, order) for feature_type, order in FEATURE_ORDERS.items()}
 
+
 class NumpyEncoder(json.JSONEncoder):
     '''Encoder for converting numpy data types into types which are JSON-serializable. Based
     on the tutorial here: https://medium.com/@ayush-thakur02/understanding-custom-encoders-and-decoders-in-pythons-json-module-1490d3d23cf7'''
