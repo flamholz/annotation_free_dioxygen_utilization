@@ -18,7 +18,7 @@ simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 def get_model(feature_type, models_dir):
     model_name = f'nonlinear_{feature_type}_ternary.joblib'
     model_path = os.path.join(models_dir, model_name)
-    return model_name, BaseClassifier.load(model_path)
+    return model_name.replace('.joblib', ''), BaseClassifier.load(model_path)
 
 
 if __name__ == '__main__':
@@ -41,7 +41,7 @@ if __name__ == '__main__':
                     predictions_df = model.predict(dataset)
 
                     dataset_type = os.path.basename(input_path).replace('_datasets.h5', '')
-                    output_file_name = f'{dataset_type}_{model_name}' # Model name already contains the feature type.
+                    output_file_name = f'{dataset_type}_{model_name}.csv' # Model name already contains the feature type.
                     output_path = os.path.join(args.results_dir, output_file_name)
                     predictions_df.to_csv(output_path)
                     print(f'Output written to {output_path}')
