@@ -19,7 +19,8 @@ def get_model(feature_type, models_dir):
     model_path = os.path.join(models_dir, model_name)
     return model_name, BaseClassifier.load(model_path)
 
-    def is_kmer_feature_type(feature_type:str):
+
+def is_kmer_feature_type(feature_type:str):
     if feature_type is None:
         return False
     return re.match(r'(nt|aa|cds)_(\d)mer', feature_type) is not None
