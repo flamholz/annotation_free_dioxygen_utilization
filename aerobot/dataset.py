@@ -7,27 +7,6 @@ from aerobot.utils import FEATURE_TYPES, AMINO_ACIDS, NUCLEOTIDES, FEATURE_ORDER
 import re
 import copy
 
-def is_kmer_feature_type(feature_type:str):
-    if feature_type is None:
-        return False
-    return re.match(r'(nt|aa|cds)_(\d)mer', feature_type) is not None
-
-
-def clean_features(feature_type:str, order:list):
-    # Remove ambiguous bases and amino acids. The removed symbols indicate that the base or amino acid is unknown, and 
-    # do not occur very frequently. 
-    def is_valid_column(col:str) -> bool:
-        ref = AMINO_ACIDS if re.match(r'aa_(\d)mer', feature_type) else NUCLEOTIDES
-        return np.all([elem in ref for elem in col])
-    print(feature_type)
-    if is_kmer_feature_type(feature_type): 
-        print(f'it is a kmer {feature_type}')
-        order = [f for f in order if is_valid_column(f)]
-        print(len(order))
-    return order
-
-# Load the feature orders for consistency, i.e. ensuring the feature orders are the same as the vectors the models are trained on. 
-FEATURE_ORDERS = {feature_type:clean_features(feature_type, order) for feature_type, order in FEATURE_ORDERS.items()}
 
 
 class FeatureDataset():
@@ -54,7 +33,7 @@ class FeatureDataset():
 
         self.ids = self.features.index 
 
-        if (feature_type == 'embedding_rna16s') or (feature_type is None):  # Make sure the column ordering of the feature columns is consistent. 
+        if not ((feature_type == 'embedding_rna16s') or (feature_type is None)):  # Make sure the column ordering of the feature columns is consistent. 
             self.features = self.features.reindex(columns=FEATURE_ORDERS[feature_type], fill_value=0)
 
         # If the normalize option is specified, and the feature type needs to be normalized, then normalize the rows. 
