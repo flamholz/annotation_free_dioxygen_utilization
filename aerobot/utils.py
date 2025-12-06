@@ -54,6 +54,7 @@ def clean_features(feature_type:str, order:list):
         ref = AMINO_ACIDS if re.match(r'aa_(\d)mer', feature_type) else NUCLEOTIDES
         return np.all([elem in ref for elem in col])
     if is_kmer_feature_type(feature_type): 
+        print(f'it is a kmer {feature_type}')
         order = [f for f in order if is_valid_column(f)]
     return order
 
