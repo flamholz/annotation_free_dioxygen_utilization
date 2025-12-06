@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from aerobot.utils import FEATURE_TYPES
+from aerobot.utils import FEATURE_TYPES, AMINO_ACIDS, NUCLEOTIDES
 from aerobot.dataset import FeatureDataset
 from aerobot.models import BaseClassifier
 from sklearn.linear_model import LogisticRegression
@@ -10,6 +10,7 @@ from typing import Dict, NoReturn, Tuple
 import pickle
 import glob
 from warnings import simplefilter
+import io
 import re 
 
 simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
@@ -36,6 +37,7 @@ def clean_features(feature_type:str, order:list):
     if is_kmer_feature_type(feature_type): 
         print(f'it is a kmer {feature_type}')
         order = [f for f in order if is_valid_column(f)]
+        print(len(order))
     return order
 
 # Load the feature orders for consistency, i.e. ensuring the feature orders are the same as the vectors the models are trained on. 
